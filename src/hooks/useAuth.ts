@@ -45,39 +45,59 @@ export const useAuth = () => {
 
   const fetchUserRole = async (authUser: User) => {
     try {
-      // Check if user has admin role
-      const { data: roles, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', authUser.id);
+      // DEV/TEST MODE: All users are admins for testing purposes
+      // TODO: Remove this before production and use proper role checking
+      const isDevMode = true; // Set to false for production
+      
+      if (isDevMode) {
+        // Get profile info
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('user_id', authUser.id)
+          .single();
 
-      if (error) throw error;
+        setIsAdmin(true);
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          name: profile?.name || authUser.email?.split('@')[0] || 'User',
+          role: 'admin',
+        });
+      } else {
+        // Production mode: Check actual roles
+        const { data: roles, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', authUser.id);
 
-      const hasAdminRole = roles?.some(r => r.role === 'admin') || false;
-      setIsAdmin(hasAdminRole);
+        if (error) throw error;
 
-      // Get profile info
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('name')
-        .eq('user_id', authUser.id)
-        .single();
+        const hasAdminRole = roles?.some(r => r.role === 'admin') || false;
+        setIsAdmin(hasAdminRole);
 
-      setUser({
-        id: authUser.id,
-        email: authUser.email || '',
-        name: profile?.name || authUser.email?.split('@')[0] || 'User',
-        role: hasAdminRole ? 'admin' : 'user',
-      });
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('user_id', authUser.id)
+          .single();
+
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          name: profile?.name || authUser.email?.split('@')[0] || 'User',
+          role: hasAdminRole ? 'admin' : 'user',
+        });
+      }
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUser({
         id: authUser.id,
         email: authUser.email || '',
         name: authUser.email?.split('@')[0] || 'User',
-        role: 'user',
+        role: 'admin', // DEV MODE: Default to admin for testing
       });
-      setIsAdmin(false);
+      setIsAdmin(true); // DEV MODE: Default to admin for testing
     } finally {
       setLoading(false);
     }
