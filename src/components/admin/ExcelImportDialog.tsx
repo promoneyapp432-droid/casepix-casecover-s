@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { FileSpreadsheet, Upload, Loader2, ExternalLink, AlertCircle, Download } from 'lucide-react';
+import { FileSpreadsheet, Upload, Loader2, ExternalLink, AlertCircle, Download, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,13 +21,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useBulkAddModels, MobileBrand } from '@/hooks/useMobileBrands';
-import { supabase } from '@/integrations/supabase/client';
+import { firecrawlApi } from '@/lib/api/firecrawl';
 import { toast } from 'sonner';
 
 interface ExcelImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   brands: MobileBrand[];
+  preselectedBrandId?: string;
 }
 
 interface ParsedModel {
@@ -38,9 +39,9 @@ interface ParsedModel {
   error?: string;
 }
 
-const ExcelImportDialog = ({ open, onOpenChange, brands }: ExcelImportDialogProps) => {
+const ExcelImportDialog = ({ open, onOpenChange, brands, preselectedBrandId }: ExcelImportDialogProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [selectedBrand, setSelectedBrand] = useState<string>(preselectedBrandId || '');
   const [parsedModels, setParsedModels] = useState<ParsedModel[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -49,16 +50,14 @@ const ExcelImportDialog = ({ open, onOpenChange, brands }: ExcelImportDialogProp
   const bulkAddMutation = useBulkAddModels();
 
   const downloadTemplate = () => {
-    // Create CSV template content
-    const templateContent = `Model Name,Link (Optional)
-Galaxy S24 Ultra,https://www.samsung.com/galaxy-s24-ultra
-Galaxy S24+,https://www.samsung.com/galaxy-s24-plus
-Galaxy S24,
-iPhone 16 Pro Max,https://www.apple.com/iphone-16-pro
-iPhone 16 Pro,
-Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
+    // Create CSV template content with GSM Arena links
+    const templateContent = `Link (GSM Arena or other mobile page)
+https://www.gsmarena.com/samsung_galaxy_s24_ultra-12771.php
+https://www.gsmarena.com/samsung_galaxy_s24+-12713.php
+https://www.gsmarena.com/apple_iphone_16_pro_max-12970.php
+https://www.gsmarena.com/apple_iphone_16_pro-12969.php
+https://www.gsmarena.com/google_pixel_9_pro-12871.php`;
 
-    // Create and download the file
     const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -98,33 +97,44 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
       const text = await file.text();
       const lines = text.split('\n').filter(line => line.trim());
       
-      setProgress(30);
+      setProgress(20);
 
-      // Parse CSV/Excel (simple parsing for CSV)
+      // Parse CSV - expecting links (GSM Arena URLs)
       const models: ParsedModel[] = [];
       
       for (let i = 1; i < lines.length; i++) { // Skip header
-        const line = lines[i];
-        const columns = line.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+        const line = lines[i].trim();
+        if (!line) continue;
         
-        if (columns.length >= 1 && columns[0]) {
+        // Handle CSV with quotes and commas
+        const columns = line.split(',').map(col => col.trim().replace(/^"|"$/g, ''));
+        const link = columns[0];
+        
+        if (link && link.startsWith('http')) {
+          // Extract a temporary name from the URL
+          const urlParts = link.split('/').pop()?.replace('.php', '').replace(/-/g, ' ') || `Model ${i}`;
+          
           const model: ParsedModel = {
-            name: columns[0],
-            link: columns[1] || undefined,
+            name: urlParts,
+            link: link,
             status: 'pending',
           };
           models.push(model);
         }
       }
 
-      setProgress(50);
+      if (models.length === 0) {
+        toast.error('No valid links found in file. Please ensure links start with http');
+        setIsProcessing(false);
+        return;
+      }
+
+      setProgress(30);
       setParsedModels(models);
       setStep('review');
       
-      // If there are links, start scraping
-      if (models.some(m => m.link)) {
-        await scrapeLinks(models);
-      }
+      // Start scraping with Firecrawl
+      await scrapeLinksWithFirecrawl(models);
       
       setProgress(100);
     } catch (error: any) {
@@ -134,43 +144,50 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
     }
   };
 
-  const scrapeLinks = async (models: ParsedModel[]) => {
+  const scrapeLinksWithFirecrawl = async (models: ParsedModel[]) => {
     const modelsWithLinks = models.filter(m => m.link);
     
     for (let i = 0; i < modelsWithLinks.length; i++) {
       const model = modelsWithLinks[i];
       
       setParsedModels(prev => prev.map(m => 
-        m.name === model.name ? { ...m, status: 'processing' } : m
+        m.link === model.link ? { ...m, status: 'processing' } : m
       ));
 
       try {
-        // Call edge function to scrape the link
-        const { data, error } = await supabase.functions.invoke('scrape-mobile-info', {
-          body: { url: model.link },
-        });
+        // Use Firecrawl API to scrape the link
+        const result = await firecrawlApi.scrapeMobileInfo(model.link!);
 
-        if (error) throw error;
+        if (result.error) {
+          throw new Error(result.error);
+        }
 
         setParsedModels(prev => prev.map(m => 
-          m.name === model.name 
+          m.link === model.link 
             ? { 
                 ...m, 
                 status: 'success',
-                image: data?.image || undefined,
-                name: data?.name || m.name,
+                image: result.image || undefined,
+                name: result.name || m.name,
               } 
             : m
         ));
       } catch (error: any) {
+        console.error('Scraping error for', model.link, error);
         setParsedModels(prev => prev.map(m => 
-          m.name === model.name 
+          m.link === model.link 
             ? { ...m, status: 'error', error: error.message } 
             : m
         ));
       }
 
-      setProgress(50 + ((i + 1) / modelsWithLinks.length) * 40);
+      // Update progress
+      setProgress(30 + ((i + 1) / modelsWithLinks.length) * 60);
+      
+      // Small delay to avoid rate limiting
+      if (i < modelsWithLinks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
   };
 
@@ -185,12 +202,19 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
 
     try {
       const modelsToImport = parsedModels
-        .filter(m => m.status !== 'error')
+        .filter(m => m.status === 'success' || m.status === 'pending')
         .map(m => ({
           name: m.name,
           brand_id: selectedBrand,
           image: m.image,
         }));
+
+      if (modelsToImport.length === 0) {
+        toast.error('No models to import');
+        setStep('review');
+        setIsProcessing(false);
+        return;
+      }
 
       await bulkAddMutation.mutateAsync(modelsToImport);
       
@@ -198,6 +222,7 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
       resetState();
     } catch (error: any) {
       toast.error('Import failed: ' + error.message);
+      setStep('review');
     } finally {
       setIsProcessing(false);
     }
@@ -205,7 +230,7 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
 
   const resetState = () => {
     setParsedModels([]);
-    setSelectedBrand('');
+    setSelectedBrand(preselectedBrandId || '');
     setProgress(0);
     setStep('upload');
     if (fileInputRef.current) {
@@ -214,6 +239,9 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
   };
 
   const selectedBrandName = brands.find(b => b.id === selectedBrand)?.name;
+  const successCount = parsedModels.filter(m => m.status === 'success').length;
+  const pendingCount = parsedModels.filter(m => m.status === 'pending').length;
+  const errorCount = parsedModels.filter(m => m.status === 'error').length;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -224,7 +252,7 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5" />
-            Import Models from Excel
+            Import Models via Excel
             {selectedBrandName && (
               <Badge variant="secondary" className="ml-2">
                 {selectedBrandName}
@@ -232,8 +260,7 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
             )}
           </DialogTitle>
           <DialogDescription>
-            Upload an Excel or CSV file with model names and optional links. 
-            Links will be scraped to extract images and model details.
+            Upload a CSV/Excel file with GSM Arena links. We'll use Firecrawl to extract mobile model images and names automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -260,9 +287,13 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>File format:</strong> CSV or Excel with columns: Model Name, Link (optional)
-                  <br />
-                  The first row should be headers. Links will be scraped for images.
+                  <strong>How it works:</strong>
+                  <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                    <li>Upload a CSV file with GSM Arena mobile page links</li>
+                    <li>Firecrawl will automatically scrape each link</li>
+                    <li>Mobile model name and image will be extracted</li>
+                    <li>Review and import into your selected brand</li>
+                  </ol>
                 </AlertDescription>
               </Alert>
 
@@ -298,17 +329,37 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
 
           {step === 'review' && (
             <>
-              {isProcessing && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Scraping links for images...</span>
-                    <span>{Math.round(progress)}%</span>
-                  </div>
-                  <Progress value={progress} />
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>
+                    {isProcessing ? 'Scraping with Firecrawl...' : 'Scraping complete'}
+                  </span>
+                  <span>{Math.round(progress)}%</span>
                 </div>
-              )}
+                <Progress value={progress} />
+              </div>
 
-              <ScrollArea className="flex-1 border rounded-lg">
+              {/* Stats */}
+              <div className="flex gap-4 text-sm">
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  {successCount} scraped
+                </Badge>
+                {pendingCount > 0 && (
+                  <Badge variant="outline">
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    {pendingCount} pending
+                  </Badge>
+                )}
+                {errorCount > 0 && (
+                  <Badge variant="destructive">
+                    {errorCount} failed
+                  </Badge>
+                )}
+              </div>
+
+              <ScrollArea className="flex-1 border rounded-lg max-h-[300px]">
                 <div className="divide-y">
                   {parsedModels.map((model, index) => (
                     <div key={index} className="flex items-center gap-4 p-3">
@@ -316,11 +367,15 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
                         <img 
                           src={model.image} 
                           alt={model.name}
-                          className="w-12 h-12 object-cover rounded"
+                          className="w-12 h-12 object-cover rounded border"
                         />
                       ) : (
                         <div className="w-12 h-12 bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">
-                          No img
+                          {model.status === 'processing' ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            'No img'
+                          )}
                         </div>
                       )}
                       
@@ -336,6 +391,9 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
                             <ExternalLink className="w-3 h-3" />
                             View source
                           </a>
+                        )}
+                        {model.error && (
+                          <p className="text-xs text-destructive">{model.error}</p>
                         )}
                       </div>
 
@@ -357,7 +415,7 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
 
               <div className="flex justify-between items-center pt-2">
                 <p className="text-sm text-muted-foreground">
-                  {parsedModels.length} models found, {parsedModels.filter(m => m.status !== 'error').length} ready to import
+                  {parsedModels.length} links found, {successCount + pendingCount} ready to import
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={resetState}>
@@ -366,10 +424,10 @@ Pixel 9 Pro,https://store.google.com/product/pixel_9_pro`;
                   <Button 
                     className="gradient-primary"
                     onClick={handleImport}
-                    disabled={!selectedBrand || isProcessing || bulkAddMutation.isPending}
+                    disabled={!selectedBrand || isProcessing || bulkAddMutation.isPending || (successCount + pendingCount) === 0}
                   >
                     {bulkAddMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Import {parsedModels.filter(m => m.status !== 'error').length} Models
+                    Import {successCount + pendingCount} Models
                   </Button>
                 </div>
               </div>
