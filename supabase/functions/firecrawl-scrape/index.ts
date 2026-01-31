@@ -34,6 +34,27 @@ Deno.serve(async (req) => {
     }
 
     console.log('Scraping URL:', formattedUrl);
+    console.log('Options:', JSON.stringify(options));
+
+    // Prepare formats array
+    const formats = options?.formats || ['markdown'];
+    
+    const requestBody: Record<string, unknown> = {
+      url: formattedUrl,
+      formats: formats,
+      waitFor: options?.waitFor || 2000,
+    };
+
+    // Only set onlyMainContent if specified, default to false for mobile scraping
+    if (options?.onlyMainContent !== undefined) {
+      requestBody.onlyMainContent = options.onlyMainContent;
+    }
+
+    if (options?.location) {
+      requestBody.location = options.location;
+    }
+
+    console.log('Firecrawl request body:', JSON.stringify(requestBody));
 
     const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
@@ -41,26 +62,22 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        url: formattedUrl,
-        formats: options?.formats || ['markdown'],
-        onlyMainContent: options?.onlyMainContent ?? true,
-        waitFor: options?.waitFor,
-        location: options?.location,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Firecrawl API error:', data);
+      console.error('Firecrawl API error:', JSON.stringify(data));
       return new Response(
         JSON.stringify({ success: false, error: data.error || `Request failed with status ${response.status}` }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Scrape successful');
+    console.log('Scrape successful, data keys:', Object.keys(data));
+    console.log('Metadata:', JSON.stringify(data.data?.metadata || data.metadata || {}));
+    
     return new Response(
       JSON.stringify(data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
