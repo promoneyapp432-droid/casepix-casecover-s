@@ -190,7 +190,18 @@ const CompatibleGroupManager = () => {
                                 onClick={() => toggleModelSelection(model.id)}
                               >
                                 <Checkbox checked={selectedModels.includes(model.id)} />
-                                <span className="text-sm">{model.name}</span>
+                                {model.image ? (
+                                  <img 
+                                    src={model.image} 
+                                    alt={model.name}
+                                    className="w-8 h-8 object-contain rounded"
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">
+                                    📱
+                                  </div>
+                                )}
+                                <span className="text-sm flex-1 truncate">{model.name}</span>
                               </motion.div>
                             ))}
                           </div>
@@ -244,7 +255,22 @@ const CompatibleGroupManager = () => {
                       <TableCell className="font-medium">
                         {group.model?.brand?.name}
                       </TableCell>
-                      <TableCell>{group.model?.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {group.model?.image ? (
+                            <img 
+                              src={group.model.image} 
+                              alt={group.model.name}
+                              className="w-10 h-10 object-contain rounded border"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-muted rounded flex items-center justify-center text-muted-foreground">
+                              📱
+                            </div>
+                          )}
+                          <span>{group.model?.name}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-2">
                           <Switch

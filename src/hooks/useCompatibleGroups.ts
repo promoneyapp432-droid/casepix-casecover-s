@@ -18,6 +18,7 @@ export interface CompatibleGroupWithModel extends CompatibleGroup {
   model: {
     id: string;
     name: string;
+    image: string | null;
     brand: {
       id: string;
       name: string;
@@ -36,6 +37,7 @@ export const useCompatibleGroups = (caseType?: CaseType) => {
           model:mobile_models(
             id,
             name,
+            image,
             brand:mobile_brands(id, name)
           )
         `)
@@ -63,6 +65,7 @@ export const useVisibleModelsForCaseType = (caseType: CaseType) => {
           model:mobile_models(
             id,
             name,
+            image,
             brand_id,
             brand:mobile_brands(id, name)
           )
