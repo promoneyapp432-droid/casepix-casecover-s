@@ -17,6 +17,7 @@ export type Database = {
       a_plus_content: {
         Row: {
           case_type: Database["public"]["Enums"]["case_type"]
+          content_blocks: Json | null
           created_at: string
           default_image_2: string | null
           default_image_3: string | null
@@ -31,6 +32,7 @@ export type Database = {
         }
         Insert: {
           case_type: Database["public"]["Enums"]["case_type"]
+          content_blocks?: Json | null
           created_at?: string
           default_image_2?: string | null
           default_image_3?: string | null
@@ -45,6 +47,7 @@ export type Database = {
         }
         Update: {
           case_type?: Database["public"]["Enums"]["case_type"]
+          content_blocks?: Json | null
           created_at?: string
           default_image_2?: string | null
           default_image_3?: string | null

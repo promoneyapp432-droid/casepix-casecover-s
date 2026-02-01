@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Save, Plus, X, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { Save, Plus, X, Loader2, GripVertical, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +11,9 @@ import ImageUploader from './ImageUploader';
 import { useAPlusContent, useUpsertAPlusContent, APlusContent } from '@/hooks/useAPlusContent';
 import { Database } from '@/integrations/supabase/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ContentBlock, ContentBlockType, createEmptyBlock } from '@/types/aplus';
+import ContentBlockRenderer from './aplus-blocks/ContentBlockRenderer';
+import AddBlockButton from './aplus-blocks/AddBlockButton';
 
 type CaseType = Database['public']['Enums']['case_type'];
 
@@ -23,6 +26,7 @@ interface ContentFormState {
   default_image_4: string | null;
   default_image_5: string | null;
   default_image_6: string | null;
+  content_blocks: ContentBlock[];
 }
 
 const defaultFormState: ContentFormState = {
@@ -34,6 +38,7 @@ const defaultFormState: ContentFormState = {
   default_image_4: null,
   default_image_5: null,
   default_image_6: null,
+  content_blocks: [],
 };
 
 const APlusContentEditor = () => {
@@ -59,6 +64,7 @@ const APlusContentEditor = () => {
         default_image_4: currentContent.default_image_4,
         default_image_5: currentContent.default_image_5,
         default_image_6: currentContent.default_image_6,
+        content_blocks: Array.isArray(currentContent.content_blocks) ? currentContent.content_blocks : [],
       });
     } else {
       setFormState(defaultFormState);
@@ -79,6 +85,30 @@ const APlusContentEditor = () => {
     setFormState(prev => ({
       ...prev,
       features: prev.features.filter((_, i) => i !== index),
+    }));
+  };
+
+  const addBlock = (type: ContentBlockType) => {
+    const newBlock = createEmptyBlock(type);
+    setFormState(prev => ({
+      ...prev,
+      content_blocks: [...prev.content_blocks, newBlock],
+    }));
+  };
+
+  const updateBlock = (updatedBlock: ContentBlock) => {
+    setFormState(prev => ({
+      ...prev,
+      content_blocks: prev.content_blocks.map(block =>
+        block.id === updatedBlock.id ? updatedBlock : block
+      ),
+    }));
+  };
+
+  const removeBlock = (blockId: string) => {
+    setFormState(prev => ({
+      ...prev,
+      content_blocks: prev.content_blocks.filter(block => block.id !== blockId),
     }));
   };
 
@@ -104,11 +134,11 @@ const APlusContentEditor = () => {
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="metal" className="gap-2">
-              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-zinc-400 to-zinc-600" />
+              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-muted-foreground/60 to-muted-foreground" />
               Metal Case
             </TabsTrigger>
             <TabsTrigger value="snap" className="gap-2">
-              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
+              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-primary/60 to-primary" />
               Snap Case
             </TabsTrigger>
           </TabsList>
@@ -191,6 +221,63 @@ const APlusContentEditor = () => {
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Content Blocks Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Content Blocks</CardTitle>
+              <CardDescription>
+                Add and arrange content blocks. You can use each block type multiple times.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Reorder.Group
+                axis="y"
+                values={formState.content_blocks}
+                onReorder={(newBlocks) => setFormState(prev => ({ ...prev, content_blocks: newBlocks }))}
+                className="space-y-4"
+              >
+                <AnimatePresence mode="popLayout">
+                  {formState.content_blocks.map((block) => (
+                    <Reorder.Item
+                      key={block.id}
+                      value={block}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="relative"
+                    >
+                      <div className="flex gap-2">
+                        <div className="flex flex-col items-center gap-1 pt-2">
+                          <div className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-secondary">
+                            <GripVertical className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeBlock(block.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="flex-1 p-4 border rounded-lg bg-card">
+                          <ContentBlockRenderer
+                            block={block}
+                            onChange={updateBlock}
+                            caseType={selectedCaseType}
+                          />
+                        </div>
+                      </div>
+                    </Reorder.Item>
+                  ))}
+                </AnimatePresence>
+              </Reorder.Group>
+
+              <AddBlockButton onAdd={addBlock} />
             </CardContent>
           </Card>
 
