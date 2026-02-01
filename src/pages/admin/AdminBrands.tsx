@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, FileSpreadsheet, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Plus, FileSpreadsheet, Loader2, Image as ImageIcon, Package } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,8 @@ import CompatibleGroupManager from '@/components/admin/CompatibleGroupManager';
 import APlusContentEditor from '@/components/admin/APlusContentEditor';
 import ModelsTableView from '@/components/admin/ModelsTableView';
 import ExcelImportDialog from '@/components/admin/ExcelImportDialog';
+import QuickProductDialog from '@/components/admin/QuickProductDialog';
+import ProductsManager from '@/components/admin/ProductsManager';
 import {
   useMobileBrands,
   useMobileModels,
@@ -48,6 +50,7 @@ const AdminBrands = () => {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<MobileModel | null>(null);
   const [modelFormData, setModelFormData] = useState({ name: '', brand_id: '', image: '' });
 
@@ -100,10 +103,10 @@ const AdminBrands = () => {
   // Show auth warning if not logged in as admin
   if (!authLoading && (!user || !isAdmin)) {
     return (
-      <AdminLayout title="All Models">
+      <AdminLayout title="Phone Case">
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>
-            You must be logged in as an admin to manage brands and models. 
+            You must be logged in as an admin to manage phone cases. 
             Please <a href="/login" className="underline font-semibold">sign in</a> with admin credentials.
           </AlertDescription>
         </Alert>
@@ -112,13 +115,34 @@ const AdminBrands = () => {
   }
 
   return (
-    <AdminLayout title="All Models">
-      <Tabs defaultValue="models" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="models">All Models</TabsTrigger>
+    <AdminLayout title="Phone Case">
+      <Tabs defaultValue="products" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="products" className="gap-2">
+            <Package className="w-4 h-4" />
+            Products
+          </TabsTrigger>
+          <TabsTrigger value="models">Models</TabsTrigger>
           <TabsTrigger value="compatible">Compatible Groups</TabsTrigger>
           <TabsTrigger value="aplus">A+ Content</TabsTrigger>
         </TabsList>
+
+        {/* Products Tab */}
+        <TabsContent value="products" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold">Manage Products</h2>
+              <p className="text-sm text-muted-foreground">
+                Add and manage phone case designs
+              </p>
+            </div>
+            <Button className="gradient-primary" onClick={() => setIsProductDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Product
+            </Button>
+          </div>
+          <ProductsManager />
+        </TabsContent>
 
         {/* All Models Tab with Sidebar */}
         <TabsContent value="models" className="space-y-0">
@@ -270,6 +294,12 @@ const AdminBrands = () => {
         onOpenChange={setIsImportDialogOpen}
         brands={brands || []}
         preselectedBrandId={selectedBrandId || undefined}
+      />
+
+      {/* Quick Product Dialog */}
+      <QuickProductDialog
+        open={isProductDialogOpen}
+        onOpenChange={setIsProductDialogOpen}
       />
     </AdminLayout>
   );
