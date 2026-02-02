@@ -19,7 +19,6 @@ import { useStore } from '@/context/StoreContext';
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
-  { icon: Tags, label: 'Categories', path: '/admin/categories' },
   { icon: Smartphone, label: 'Phone Case', path: '/admin/brands' },
   { icon: ShoppingBag, label: 'Orders', path: '/admin/orders' },
   { icon: Users, label: 'Users', path: '/admin/users' },
