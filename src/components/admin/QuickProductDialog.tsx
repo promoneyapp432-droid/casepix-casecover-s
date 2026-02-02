@@ -36,7 +36,6 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
     categoryId: '',
     metalImage: '',
     snapImage: '',
-    basePrice: '499',
   });
 
   // Fetch categories
@@ -55,13 +54,13 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
   // Create product mutation
   const createProduct = useMutation({
     mutationFn: async () => {
-      // Create the base product
+      // Create the base product (price comes from A+ Content now)
       const { data: product, error: productError } = await supabase
         .from('products')
         .insert({
           name: formData.name,
           category_id: formData.categoryId || null,
-          base_price: parseFloat(formData.basePrice) || 499,
+          base_price: 499, // Default base price, actual pricing from A+ Content
           image: formData.metalImage || formData.snapImage, // Use first available as main
           is_new: true,
         })
@@ -78,7 +77,7 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
           product_id: product.id,
           case_type: 'metal' as const,
           title: `${formData.name} - Metal Case`,
-          price: parseFloat(formData.basePrice) + 300,
+          price: 799, // Default, actual price from A+ Content
           image: formData.metalImage,
           stock: 100,
         });
@@ -89,7 +88,7 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
           product_id: product.id,
           case_type: 'snap' as const,
           title: `${formData.name} - Snap Case`,
-          price: parseFloat(formData.basePrice),
+          price: 499, // Default, actual price from A+ Content
           image: formData.snapImage,
           stock: 100,
         });
@@ -122,7 +121,6 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
       categoryId: '',
       metalImage: '',
       snapImage: '',
-      basePrice: '499',
     });
   };
 
@@ -150,7 +148,7 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
             Add New Product
           </DialogTitle>
           <DialogDescription>
-            Simply upload Metal Case and Snap Case images to create a product. 
+            Simply upload Metal Case and Snap Case images to create a product. Pricing is managed in A+ Content. 
             Other details like description and features come from A+ Content settings.
           </DialogDescription>
         </DialogHeader>
@@ -187,22 +185,6 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
               </Select>
             </div>
           </div>
-
-          <div>
-            <Label htmlFor="basePrice">Base Price (₹)</Label>
-            <Input
-              id="basePrice"
-              type="number"
-              value={formData.basePrice}
-              onChange={(e) => setFormData(prev => ({ ...prev, basePrice: e.target.value }))}
-              placeholder="499"
-              className="max-w-[150px]"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Metal case will be priced at ₹{(parseFloat(formData.basePrice) || 499) + 300}
-            </p>
-          </div>
-
           {/* Image Uploads */}
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">

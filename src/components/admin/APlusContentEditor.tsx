@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { Save, Plus, X, Loader2, GripVertical, Trash2 } from 'lucide-react';
+import { Save, Plus, X, Loader2, GripVertical, Trash2, IndianRupee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,8 @@ interface ContentFormState {
   title: string;
   description: string;
   features: string[];
+  price: number;
+  compare_price: number | null;
   default_image_2: string | null;
   default_image_3: string | null;
   default_image_4: string | null;
@@ -33,6 +35,8 @@ const defaultFormState: ContentFormState = {
   title: '',
   description: '',
   features: [],
+  price: 499,
+  compare_price: null,
   default_image_2: null,
   default_image_3: null,
   default_image_4: null,
@@ -59,6 +63,8 @@ const APlusContentEditor = () => {
         title: currentContent.title || '',
         description: currentContent.description || '',
         features: Array.isArray(currentContent.features) ? currentContent.features : [],
+        price: currentContent.price ?? (selectedCaseType === 'metal' ? 799 : 499),
+        compare_price: currentContent.compare_price ?? null,
         default_image_2: currentContent.default_image_2,
         default_image_3: currentContent.default_image_3,
         default_image_4: currentContent.default_image_4,
@@ -67,7 +73,10 @@ const APlusContentEditor = () => {
         content_blocks: Array.isArray(currentContent.content_blocks) ? currentContent.content_blocks : [],
       });
     } else {
-      setFormState(defaultFormState);
+      setFormState({
+        ...defaultFormState,
+        price: selectedCaseType === 'metal' ? 799 : 499,
+      });
     }
   }, [currentContent, selectedCaseType]);
 
@@ -158,6 +167,51 @@ const APlusContentEditor = () => {
         </div>
 
         <TabsContent value={selectedCaseType} className="mt-4 space-y-6">
+          {/* Pricing Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IndianRupee className="w-5 h-5" />
+                Pricing
+              </CardTitle>
+              <CardDescription>
+                Set the default price for all {selectedCaseType} case products
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="price">Selling Price (₹)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={formState.price}
+                    onChange={(e) => setFormState(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                    placeholder="499"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="compare_price">Compare at Price (₹)</Label>
+                  <Input
+                    id="compare_price"
+                    type="number"
+                    value={formState.compare_price || ''}
+                    onChange={(e) => setFormState(prev => ({ 
+                      ...prev, 
+                      compare_price: e.target.value ? parseFloat(e.target.value) : null 
+                    }))}
+                    placeholder="899 (optional - shows strikethrough)"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Optional: Shows as strikethrough price for discounts
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Rich Description Card */}
           <Card>
             <CardHeader>

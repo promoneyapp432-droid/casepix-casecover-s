@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, FileSpreadsheet, Loader2, Image as ImageIcon, Package } from 'lucide-react';
+import { Plus, FileSpreadsheet, Loader2, Image as ImageIcon, Package, FolderTree } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ import ModelsTableView from '@/components/admin/ModelsTableView';
 import ExcelImportDialog from '@/components/admin/ExcelImportDialog';
 import QuickProductDialog from '@/components/admin/QuickProductDialog';
 import ProductsManager from '@/components/admin/ProductsManager';
+import CategoriesManager from '@/components/admin/CategoriesManager';
 import {
   useMobileBrands,
   useMobileModels,
@@ -117,10 +118,14 @@ const AdminBrands = () => {
   return (
     <AdminLayout title="Phone Case">
       <Tabs defaultValue="products" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="products" className="gap-2">
             <Package className="w-4 h-4" />
             Products
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="gap-2">
+            <FolderTree className="w-4 h-4" />
+            Categories
           </TabsTrigger>
           <TabsTrigger value="models">Models</TabsTrigger>
           <TabsTrigger value="compatible">Compatible Groups</TabsTrigger>
@@ -142,6 +147,17 @@ const AdminBrands = () => {
             </Button>
           </div>
           <ProductsManager />
+        </TabsContent>
+
+        {/* Categories Tab */}
+        <TabsContent value="categories" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Manage Categories</h2>
+            <p className="text-sm text-muted-foreground">
+              Organize products by categories like Anime, Marvel, etc.
+            </p>
+          </div>
+          <CategoriesManager />
         </TabsContent>
 
         {/* All Models Tab with Sidebar */}

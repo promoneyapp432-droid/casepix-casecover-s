@@ -12,6 +12,8 @@ export interface APlusContent {
   title: string | null;
   description: string | null;
   features: string[];
+  price: number;
+  compare_price: number | null;
   default_image_2: string | null;
   default_image_3: string | null;
   default_image_4: string | null;
@@ -50,6 +52,8 @@ export const useAPlusContent = () => {
         ...item,
         features: parseFeatures(item.features),
         content_blocks: parseContentBlocks(item.content_blocks),
+        price: item.price ?? 499,
+        compare_price: item.compare_price ?? null,
       })) as APlusContent[];
     },
   });
@@ -73,6 +77,8 @@ export const useAPlusContentByCaseType = (caseType: CaseType) => {
         ...data,
         features: parseFeatures(data.features),
         content_blocks: parseContentBlocks(data.content_blocks),
+        price: data.price ?? 499,
+        compare_price: data.compare_price ?? null,
       } as APlusContent;
     },
   });
@@ -124,6 +130,8 @@ export const useUpsertAPlusContent = () => {
         title: data.title,
         description: data.description,
         features: data.features as unknown as Json,
+        price: data.price,
+        compare_price: data.compare_price,
         default_image_2: data.default_image_2,
         default_image_3: data.default_image_3,
         default_image_4: data.default_image_4,

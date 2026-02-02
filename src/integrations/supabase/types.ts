@@ -17,6 +17,7 @@ export type Database = {
       a_plus_content: {
         Row: {
           case_type: Database["public"]["Enums"]["case_type"]
+          compare_price: number | null
           content_blocks: Json | null
           created_at: string
           default_image_2: string | null
@@ -27,11 +28,13 @@ export type Database = {
           description: string | null
           features: Json | null
           id: string
+          price: number | null
           title: string | null
           updated_at: string
         }
         Insert: {
           case_type: Database["public"]["Enums"]["case_type"]
+          compare_price?: number | null
           content_blocks?: Json | null
           created_at?: string
           default_image_2?: string | null
@@ -42,11 +45,13 @@ export type Database = {
           description?: string | null
           features?: Json | null
           id?: string
+          price?: number | null
           title?: string | null
           updated_at?: string
         }
         Update: {
           case_type?: Database["public"]["Enums"]["case_type"]
+          compare_price?: number | null
           content_blocks?: Json | null
           created_at?: string
           default_image_2?: string | null
@@ -57,6 +62,7 @@ export type Database = {
           description?: string | null
           features?: Json | null
           id?: string
+          price?: number | null
           title?: string | null
           updated_at?: string
         }
