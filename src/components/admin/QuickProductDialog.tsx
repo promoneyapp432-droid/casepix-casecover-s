@@ -105,6 +105,8 @@ const QuickProductDialog = ({ open, onOpenChange }: QuickProductDialogProps) => 
       return product;
     },
     onSuccess: () => {
+      // Invalidate both query keys for admin and public product lists
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Product created successfully!');
       onOpenChange(false);
