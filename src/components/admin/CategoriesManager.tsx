@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Pencil, Trash2, Search, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Loader2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 interface Category {
   id: string;
@@ -36,7 +37,10 @@ const CategoriesManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({ name: '', slug: '', icon: '' });
+  const [formData, setFormData] = useState({ name: '', slug: '', image: '' });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadImage, isUploading } = useImageUpload();
 
   // Fetch categories from Supabase
   const { data: categories, isLoading } = useQuery({
@@ -53,13 +57,13 @@ const CategoriesManager = () => {
 
   // Add category mutation
   const addCategoryMutation = useMutation({
-    mutationFn: async (data: { name: string; slug: string; icon: string }) => {
+    mutationFn: async (data: { name: string; slug: string; image: string }) => {
       const { error } = await supabase
         .from('categories')
         .insert({
           name: data.name,
           slug: data.slug,
-          icon: data.icon || null,
+          image: data.image || null,
         });
       if (error) throw error;
     },
@@ -74,13 +78,13 @@ const CategoriesManager = () => {
 
   // Update category mutation
   const updateCategoryMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { name: string; slug: string; icon: string } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { name: string; slug: string; image: string } }) => {
       const { error } = await supabase
         .from('categories')
         .update({
           name: data.name,
           slug: data.slug,
-          icon: data.icon || null,
+          image: data.image || null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -116,6 +120,28 @@ const CategoriesManager = () => {
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onload = (e) => setImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Upload to storage
+    const url = await uploadImage(file, 'categories');
+    if (url) {
+      setFormData({ ...formData, image: url });
+    }
+  };
+
+  const clearImage = () => {
+    setFormData({ ...formData, image: '' });
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingCategory) {
@@ -125,12 +151,14 @@ const CategoriesManager = () => {
     }
     setIsDialogOpen(false);
     setEditingCategory(null);
-    setFormData({ name: '', slug: '', icon: '' });
+    setFormData({ name: '', slug: '', image: '' });
+    setImagePreview(null);
   };
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
-    setFormData({ name: category.name, slug: category.slug, icon: category.icon || '' });
+    setFormData({ name: category.name, slug: category.slug, image: category.image || '' });
+    setImagePreview(category.image || null);
     setIsDialogOpen(true);
   };
 
@@ -142,7 +170,8 @@ const CategoriesManager = () => {
 
   const openNewDialog = () => {
     setEditingCategory(null);
-    setFormData({ name: '', slug: '', icon: '' });
+    setFormData({ name: '', slug: '', image: '' });
+    setImagePreview(null);
     setIsDialogOpen(true);
   };
 
@@ -150,7 +179,7 @@ const CategoriesManager = () => {
     return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   };
 
-  const isPending = addCategoryMutation.isPending || updateCategoryMutation.isPending;
+  const isPending = addCategoryMutation.isPending || updateCategoryMutation.isPending || isUploading;
 
   return (
     <div className="space-y-6">
@@ -186,7 +215,7 @@ const CategoriesManager = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Icon</TableHead>
+              <TableHead>Image</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -208,7 +237,19 @@ const CategoriesManager = () => {
             ) : (
               filteredCategories.map((category) => (
                 <TableRow key={category.id}>
-                  <TableCell className="text-2xl">{category.icon || '📦'}</TableCell>
+                  <TableCell>
+                    {category.image ? (
+                      <img 
+                        src={category.image} 
+                        alt={category.name} 
+                        className="w-12 h-12 object-cover rounded-lg border"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center text-muted-foreground">
+                        <Upload className="w-5 h-5" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
                   <TableCell className="text-muted-foreground">{category.slug}</TableCell>
                   <TableCell className="text-right">
@@ -272,13 +313,48 @@ const CategoriesManager = () => {
               />
             </div>
             <div>
-              <Label htmlFor="icon">Icon (Emoji)</Label>
-              <Input
-                id="icon"
-                value={formData.icon}
-                onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                placeholder="e.g., 🎌"
-              />
+              <Label>Category Image (Square Logo)</Label>
+              <div className="mt-2">
+                {(imagePreview || formData.image) ? (
+                  <div className="relative w-24 h-24">
+                    <img 
+                      src={imagePreview || formData.image} 
+                      alt="Category" 
+                      className="w-full h-full object-cover rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 w-6 h-6"
+                      onClick={clearImage}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-24 h-24 border-2 border-dashed border-muted-foreground/25 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground mt-1">Upload</span>
+                      </>
+                    )}
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
