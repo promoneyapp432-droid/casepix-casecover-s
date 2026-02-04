@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+import EditProductDialog from './EditProductDialog';
 
 interface Product {
   id: string;
@@ -40,6 +41,7 @@ interface Product {
 const ProductsManager = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [editProductId, setEditProductId] = useState<string | null>(null);
 
   // Fetch products with variants
   const { data: products, isLoading } = useQuery({
@@ -193,6 +195,14 @@ const ProductsManager = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setEditProductId(product.id)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => handleDelete(product.id, product.name)}
                         disabled={deleteProduct.isPending}
@@ -207,6 +217,13 @@ const ProductsManager = () => {
           </Table>
         </div>
       )}
+
+      {/* Edit Product Dialog */}
+      <EditProductDialog
+        open={!!editProductId}
+        onOpenChange={(open) => !open && setEditProductId(null)}
+        productId={editProductId}
+      />
     </div>
   );
 };
