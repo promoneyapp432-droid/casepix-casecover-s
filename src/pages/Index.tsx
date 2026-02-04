@@ -4,16 +4,22 @@ import HeroBanner from '@/components/HeroBanner';
 import CategorySlider from '@/components/CategorySlider';
 import ProductCard from '@/components/ProductCard';
 import Footer from '@/components/Footer';
-import { useStore } from '@/context/StoreContext';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowRight, Sparkles, TrendingUp, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useCategories } from '@/hooks/useCategories';
+import { useTopDesigns, useNewArrivals, useProducts } from '@/hooks/useProducts';
 
 const Index = () => {
-  const { categories, products } = useStore();
-  
-  const topDesigns = products.filter(p => p.isTopDesign).slice(0, 4);
-  const newArrivals = products.filter(p => p.isNew).slice(0, 4);
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
+  const { data: topDesigns = [], isLoading: topLoading } = useTopDesigns();
+  const { data: newArrivals = [], isLoading: newLoading } = useNewArrivals();
+  const { data: allProducts = [] } = useProducts();
+
+  // Get products by category for category sections
+  const getCategoryProducts = (categoryId: string) => {
+    return allProducts.filter(p => p.categoryId === categoryId).slice(0, 4);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,7 +48,13 @@ const Index = () => {
           </Link>
         </motion.div>
         
-        <CategorySlider categories={categories} />
+        {categoriesLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <CategorySlider categories={categories} />
+        )}
       </section>
 
       {/* Top Designs Section */}
@@ -70,11 +82,19 @@ const Index = () => {
           </Link>
         </motion.div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {topDesigns.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
-          ))}
-        </div>
+        {topLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : topDesigns.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {topDesigns.slice(0, 4).map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No top designs yet</p>
+        )}
       </section>
 
       {/* New Arrivals Section */}
@@ -102,16 +122,24 @@ const Index = () => {
           </Link>
         </motion.div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {newArrivals.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
-          ))}
-        </div>
+        {newLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : newArrivals.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {newArrivals.slice(0, 4).map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-muted-foreground py-8">No new arrivals yet</p>
+        )}
       </section>
 
       {/* Category Products Sections */}
       {categories.slice(0, 3).map((category) => {
-        const categoryProducts = products.filter(p => p.categoryId === category.id).slice(0, 4);
+        const categoryProducts = getCategoryProducts(category.id);
         if (categoryProducts.length === 0) return null;
         
         return (

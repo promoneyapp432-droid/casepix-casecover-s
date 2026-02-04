@@ -1,12 +1,21 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ShoppingCart, Star } from 'lucide-react';
-import { Product } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
+interface ProductCardProduct {
+  id: string;
+  name: string;
+  description: string;
+  basePrice: number;
+  image: string;
+  isNew?: boolean;
+  isTopDesign?: boolean;
+}
+
 interface ProductCardProps {
-  product: Product;
+  product: ProductCardProduct;
   index?: number;
 }
 
