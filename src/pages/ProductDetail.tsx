@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Heart, Share2, ShoppingCart, Star, Check } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, ShoppingCart, Star, Check, Loader2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BrandModelSelector from '@/components/BrandModelSelector';
 import ProductCard from '@/components/ProductCard';
-import { useStore } from '@/context/StoreContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { CaseType, ProductVariant } from '@/types';
 import { cn } from '@/lib/utils';
+import { useProductById, useRelatedProducts } from '@/hooks/useProductById';
+import { useMobileBrands, useMobileModels } from '@/hooks/useMobileBrands';
+import { Database } from '@/integrations/supabase/types';
+
+type CaseType = Database['public']['Enums']['case_type'];
 
 const caseTypeInfo: Record<CaseType, { label: string; features: string[] }> = {
   snap: {
@@ -27,24 +30,48 @@ const caseTypeInfo: Record<CaseType, { label: string; features: string[] }> = {
 const ProductDetail = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { products, categories, addToCart, brands, models } = useStore();
+  
+  const { data: product, isLoading } = useProductById(productId);
+  const { data: relatedProducts = [] } = useRelatedProducts(product?.category_id || undefined, productId);
+  const { data: brands } = useMobileBrands();
+  const { data: models } = useMobileModels();
+  
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedCaseType, setSelectedCaseType] = useState<CaseType>('snap');
   const [quantity, setQuantity] = useState(1);
 
-  const product = products.find(p => p.id === productId);
-  const category = product ? categories.find(c => c.id === product.categoryId) : null;
-  const relatedProducts = product 
-    ? products.filter(p => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4)
-    : [];
-
-  // Get selected variant or create default
-  const selectedVariant: ProductVariant | null = product?.variants?.find(v => v.caseType === selectedCaseType) || null;
-  const displayPrice = selectedVariant?.price || product?.basePrice || 0;
-  const displayImage = selectedVariant?.image || product?.image || '';
+  // Get selected variant
+  const selectedVariant = product?.product_variants?.find(v => v.case_type === selectedCaseType);
+  const displayPrice = selectedVariant?.price || product?.base_price || 0;
+  const displayImage = selectedVariant?.image || product?.image || '/placeholder.svg';
   const displayTitle = selectedVariant?.title || product?.name || '';
   const displayDescription = selectedVariant?.description || product?.description || '';
+
+  // Get all product images for gallery
+  const productImages = product ? [
+    product.image,
+    product.image_2,
+    product.image_3,
+    product.image_4,
+    product.image_5,
+    product.image_6,
+  ].filter(Boolean) as string[] : [];
+
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const currentImage = productImages[selectedImageIndex] || displayImage;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-16 flex justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -64,15 +91,10 @@ const ProductDetail = () => {
       toast.error('Please select your phone model');
       return;
     }
-    addToCart({
-      productId: product.id,
-      quantity,
-      brandId: selectedBrand,
-      modelId: selectedModel,
-    });
-    const brandName = brands.find(b => b.id === selectedBrand)?.name;
-    const modelName = models.find(m => m.id === selectedModel)?.name;
+    const brandName = brands?.find(b => b.id === selectedBrand)?.name;
+    const modelName = models?.find(m => m.id === selectedModel)?.name;
     toast.success(`Added ${displayTitle} for ${brandName} ${modelName} to cart`);
+    // TODO: Implement actual cart functionality with Supabase
   };
 
   return (
@@ -92,15 +114,16 @@ const ProductDetail = () => {
         </motion.button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Product Image */}
+          {/* Product Images */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="relative"
+            className="relative space-y-4"
           >
+            {/* Main Image */}
             <div className="aspect-[3/4] rounded-3xl overflow-hidden bg-secondary">
               <img
-                src={displayImage}
+                src={currentImage}
                 alt={displayTitle}
                 className="w-full h-full object-cover"
               />
@@ -108,12 +131,12 @@ const ProductDetail = () => {
             
             {/* Badges */}
             <div className="absolute top-4 left-4 flex flex-col gap-2">
-              {product.isNew && (
+              {product.is_new && (
                 <Badge className="gradient-coral text-white border-0 px-4 py-1">
                   New Arrival
                 </Badge>
               )}
-              {product.isTopDesign && (
+              {product.is_top_design && (
                 <Badge className="gradient-primary text-white border-0 px-4 py-1">
                   <Star className="w-3 h-3 mr-1" />
                   Top Design
@@ -130,6 +153,30 @@ const ProductDetail = () => {
                 <Share2 className="w-4 h-4" />
               </Button>
             </div>
+
+            {/* Image Thumbnails */}
+            {productImages.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {productImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={cn(
+                      "w-16 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all",
+                      selectedImageIndex === idx
+                        ? "border-primary ring-2 ring-primary/20"
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <img
+                      src={img}
+                      alt={`${displayTitle} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
 
           {/* Product Info */}
@@ -139,9 +186,9 @@ const ProductDetail = () => {
             className="space-y-6"
           >
             {/* Category */}
-            {category && (
+            {product.category && (
               <Badge variant="outline" className="mb-2">
-                {category.icon} {category.name}
+                {product.category.icon} {product.category.name}
               </Badge>
             )}
 
@@ -151,14 +198,14 @@ const ProductDetail = () => {
               <p className="text-2xl font-bold text-primary">₹{displayPrice}</p>
             </div>
 
-            {/* Case Type Selector - Amazon Style */}
+            {/* Case Type Selector */}
             <div className="space-y-3">
               <h3 className="font-semibold">Case Type:</h3>
               <div className="grid grid-cols-2 gap-3">
                 {(['snap', 'metal'] as CaseType[]).map((caseType) => {
-                  const variant = product.variants?.find(v => v.caseType === caseType);
+                  const variant = product.product_variants?.find(v => v.case_type === caseType);
                   const info = caseTypeInfo[caseType];
-                  const price = variant?.price || product.basePrice;
+                  const price = variant?.price || product.base_price;
                   const isSelected = selectedCaseType === caseType;
                   
                   return (
@@ -194,7 +241,9 @@ const ProductDetail = () => {
             </div>
 
             {/* Description */}
-            <p className="text-muted-foreground text-lg">{displayDescription}</p>
+            {displayDescription && (
+              <p className="text-muted-foreground text-lg">{displayDescription}</p>
+            )}
 
             {/* Features */}
             <div className="space-y-2">
@@ -272,8 +321,8 @@ const ProductDetail = () => {
           >
             <h2 className="text-2xl font-bold mb-6">You May Also Like</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {relatedProducts.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
+              {relatedProducts.map((relatedProduct, index) => (
+                <ProductCard key={relatedProduct.id} product={relatedProduct} index={index} />
               ))}
             </div>
           </motion.section>
