@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Heart, Share2, ShoppingCart, Star, Check, Loader2 } from 'lucide-react';
@@ -11,21 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useProductById, useRelatedProducts } from '@/hooks/useProductById';
+import { useAPlusContentByCaseType } from '@/hooks/useAPlusContent';
 import { useMobileBrands, useMobileModels } from '@/hooks/useMobileBrands';
 import { Database } from '@/integrations/supabase/types';
+import { ContentBlock } from '@/types/aplus';
 
 type CaseType = Database['public']['Enums']['case_type'];
-
-const caseTypeInfo: Record<CaseType, { label: string; features: string[] }> = {
-  snap: {
-    label: 'Snap Case',
-    features: ['Lightweight & slim', 'Easy snap-on installation', 'Scratch-resistant finish']
-  },
-  metal: {
-    label: 'Metal Case',
-    features: ['Premium aluminum build', 'Maximum protection', 'Laser-etched design']
-  }
-};
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -40,6 +31,9 @@ const ProductDetail = () => {
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedCaseType, setSelectedCaseType] = useState<CaseType>('snap');
   const [quantity, setQuantity] = useState(1);
+  
+  // Fetch A+ content for selected case type
+  const { data: aplusContent } = useAPlusContentByCaseType(selectedCaseType);
 
   // Get selected variant
   const selectedVariant = product?.product_variants?.find(v => v.case_type === selectedCaseType);
@@ -48,18 +42,73 @@ const ProductDetail = () => {
   const displayTitle = selectedVariant?.title || product?.name || '';
   const displayDescription = selectedVariant?.description || product?.description || '';
 
-  // Get all product images for gallery
-  const productImages = product ? [
-    product.image,
-    product.image_2,
-    product.image_3,
-    product.image_4,
-    product.image_5,
-    product.image_6,
-  ].filter(Boolean) as string[] : [];
+  // Get all product images for gallery - include variant image first when selected
+  const getProductImages = () => {
+    if (!product) return [];
+    
+    // Start with the selected variant's image if available
+    const variantImg = selectedVariant?.image;
+    const defaultImages = [
+      product.image,
+      product.image_2,
+      product.image_3,
+      product.image_4,
+      product.image_5,
+      product.image_6,
+    ].filter(Boolean) as string[];
+    
+    // Also include A+ content default images
+    const aplusImages = [
+      aplusContent?.default_image_2,
+      aplusContent?.default_image_3,
+      aplusContent?.default_image_4,
+      aplusContent?.default_image_5,
+      aplusContent?.default_image_6,
+    ].filter(Boolean) as string[];
+    
+    // If variant has a unique image, put it first
+    if (variantImg && !defaultImages.includes(variantImg)) {
+      return [variantImg, ...defaultImages, ...aplusImages];
+    }
+    
+    return [...defaultImages, ...aplusImages];
+  };
+  
+  const productImages = getProductImages();
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const currentImage = productImages[selectedImageIndex] || displayImage;
+
+  // Reset image index when case type changes and show variant image
+  useEffect(() => {
+    if (selectedVariant?.image) {
+      const newImages = getProductImages();
+      const variantIdx = newImages.indexOf(selectedVariant.image);
+      if (variantIdx >= 0) {
+        setSelectedImageIndex(variantIdx);
+      } else {
+        setSelectedImageIndex(0);
+      }
+    } else {
+      setSelectedImageIndex(0);
+    }
+  }, [selectedCaseType, selectedVariant?.image]);
+
+  // Get case type info from A+ content or use defaults
+  const getCaseTypeInfo = (caseType: CaseType) => {
+    const defaultInfo = {
+      snap: {
+        label: 'Snap Case',
+        features: ['Lightweight & slim', 'Easy snap-on installation', 'Scratch-resistant finish']
+      },
+      metal: {
+        label: 'Metal Case',
+        features: ['Premium aluminum build', 'Maximum protection', 'Laser-etched design']
+      }
+    };
+    
+    return defaultInfo[caseType];
+  };
 
   if (isLoading) {
     return (
@@ -204,7 +253,7 @@ const ProductDetail = () => {
               <div className="grid grid-cols-2 gap-3">
                 {(['snap', 'metal'] as CaseType[]).map((caseType) => {
                   const variant = product.product_variants?.find(v => v.case_type === caseType);
-                  const info = caseTypeInfo[caseType];
+                  const info = getCaseTypeInfo(caseType);
                   const price = variant?.price || product.base_price;
                   const isSelected = selectedCaseType === caseType;
                   
@@ -249,7 +298,7 @@ const ProductDetail = () => {
             <div className="space-y-2">
               <h3 className="font-semibold">Features:</h3>
               <ul className="space-y-2">
-                {caseTypeInfo[selectedCaseType].features.map((feature, idx) => (
+                {(aplusContent?.features?.length ? aplusContent.features : getCaseTypeInfo(selectedCaseType).features).map((feature, idx) => (
                   <li key={idx} className="flex items-center gap-2 text-muted-foreground">
                     <Check className="w-4 h-4 text-primary" />
                     {feature}
@@ -307,9 +356,43 @@ const ProductDetail = () => {
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 Add to Cart - ₹{displayPrice * quantity}
               </Button>
+              
+              <Button 
+                className="flex-1"
+                variant="secondary"
+                onClick={() => {
+                  if (!selectedBrand || !selectedModel) {
+                    toast.error('Please select your phone model');
+                    return;
+                  }
+                  const brandName = brands?.find(b => b.id === selectedBrand)?.name;
+                  const modelName = models?.find(m => m.id === selectedModel)?.name;
+                  toast.success(`Proceeding to checkout with ${displayTitle} for ${brandName} ${modelName}`);
+                  // TODO: Navigate to checkout
+                }}
+              >
+                Buy Now - ₹{displayPrice * quantity}
+              </Button>
             </div>
           </motion.div>
         </div>
+
+        {/* A+ Content Section */}
+        {aplusContent && aplusContent.content_blocks?.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mt-16 space-y-8"
+          >
+            <h2 className="text-2xl font-bold text-center">Product Details</h2>
+            <div className="space-y-8">
+              {aplusContent.content_blocks.map((block: ContentBlock, idx: number) => (
+                <APlusBlockRenderer key={idx} block={block} />
+              ))}
+            </div>
+          </motion.section>
+        )}
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
@@ -335,3 +418,77 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
+
+// A+ Content Block Renderer Component
+const APlusBlockRenderer = ({ block }: { block: ContentBlock }) => {
+  switch (block.type) {
+    case 'title':
+      return (
+        <div className="text-center">
+          <h3 className={cn(
+            "font-bold",
+            block.size === 'small' && "text-xl md:text-2xl",
+            block.size === 'medium' && "text-2xl md:text-3xl",
+            block.size === 'large' && "text-3xl md:text-4xl"
+          )}>{block.text}</h3>
+        </div>
+      );
+    
+    case 'paragraph':
+      return (
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-muted-foreground text-lg">{block.text}</p>
+        </div>
+      );
+    
+    case 'banner':
+      return (
+        <div className="rounded-2xl overflow-hidden">
+          {block.imageUrl && (
+            <img 
+              src={block.imageUrl} 
+              alt={block.alt || 'Banner'} 
+              className="w-full h-auto object-cover"
+            />
+          )}
+        </div>
+      );
+    
+    case 'image_text':
+      return (
+        <div className={cn(
+          "grid md:grid-cols-2 gap-8 items-center",
+          block.imagePosition === 'right' && "md:[&>*:first-child]:order-2"
+        )}>
+          <div className="rounded-2xl overflow-hidden">
+            {block.imageUrl && (
+              <img 
+                src={block.imageUrl} 
+                alt={block.alt || 'Feature'} 
+                className="w-full h-auto object-cover"
+              />
+            )}
+          </div>
+          <div className="space-y-4">
+            {block.text && <p className="text-muted-foreground">{block.text}</p>}
+          </div>
+        </div>
+      );
+    
+    case 'square_image':
+      return (
+        <div className="flex justify-center">
+          <div className="aspect-square w-full max-w-md rounded-xl overflow-hidden">
+            <img 
+              src={block.imageUrl} 
+              alt={block.alt || 'Image'} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      );
+    
+    default:
+      return null;
+  }
+};
