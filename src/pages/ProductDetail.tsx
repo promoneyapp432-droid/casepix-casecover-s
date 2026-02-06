@@ -8,6 +8,7 @@ import BrandModelSelector from '@/components/BrandModelSelector';
 import ProductCard from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useProductById, useRelatedProducts } from '@/hooks/useProductById';
@@ -31,68 +32,75 @@ const ProductDetail = () => {
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedCaseType, setSelectedCaseType] = useState<CaseType>('snap');
   const [quantity, setQuantity] = useState(1);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   
   // Fetch A+ content for selected case type
   const { data: aplusContent } = useAPlusContentByCaseType(selectedCaseType);
 
   // Get selected variant
   const selectedVariant = product?.product_variants?.find(v => v.case_type === selectedCaseType);
-  const displayPrice = selectedVariant?.price || product?.base_price || 0;
-  const displayImage = selectedVariant?.image || product?.image || '/placeholder.svg';
+  const displayPrice = aplusContent?.price || selectedVariant?.price || product?.base_price || 0;
+  const comparePrice = aplusContent?.compare_price || null;
   const displayTitle = selectedVariant?.title || product?.name || '';
   const displayDescription = selectedVariant?.description || product?.description || '';
 
-  // Get all product images for gallery - include variant image first when selected
+  // Build image gallery based on selected case type
   const getProductImages = () => {
     if (!product) return [];
     
-    // Start with the selected variant's image if available
-    const variantImg = selectedVariant?.image;
-    const defaultImages = [
-      product.image,
-      product.image_2,
-      product.image_3,
-      product.image_4,
-      product.image_5,
-      product.image_6,
-    ].filter(Boolean) as string[];
+    const images: { url: string; caseType?: CaseType }[] = [];
     
-    // Also include A+ content default images
-    const aplusImages = [
-      aplusContent?.default_image_2,
-      aplusContent?.default_image_3,
-      aplusContent?.default_image_4,
-      aplusContent?.default_image_5,
-      aplusContent?.default_image_6,
-    ].filter(Boolean) as string[];
+    // Get variant images for current case type first
+    const snapVariant = product.product_variants?.find(v => v.case_type === 'snap');
+    const metalVariant = product.product_variants?.find(v => v.case_type === 'metal');
     
-    // If variant has a unique image, put it first
-    if (variantImg && !defaultImages.includes(variantImg)) {
-      return [variantImg, ...defaultImages, ...aplusImages];
+    // Add selected case type's variant image first
+    if (selectedCaseType === 'snap' && snapVariant?.image) {
+      images.push({ url: snapVariant.image, caseType: 'snap' });
+    } else if (selectedCaseType === 'metal' && metalVariant?.image) {
+      images.push({ url: metalVariant.image, caseType: 'metal' });
     }
     
-    return [...defaultImages, ...aplusImages];
+    // Add product's main images (these are shared across case types)
+    if (product.image) images.push({ url: product.image });
+    if (product.image_2) images.push({ url: product.image_2 });
+    if (product.image_3) images.push({ url: product.image_3 });
+    if (product.image_4) images.push({ url: product.image_4 });
+    if (product.image_5) images.push({ url: product.image_5 });
+    if (product.image_6) images.push({ url: product.image_6 });
+    
+    // Add A+ content default images for current case type
+    if (aplusContent) {
+      if (aplusContent.default_image_2) images.push({ url: aplusContent.default_image_2 });
+      if (aplusContent.default_image_3) images.push({ url: aplusContent.default_image_3 });
+      if (aplusContent.default_image_4) images.push({ url: aplusContent.default_image_4 });
+      if (aplusContent.default_image_5) images.push({ url: aplusContent.default_image_5 });
+      if (aplusContent.default_image_6) images.push({ url: aplusContent.default_image_6 });
+    }
+    
+    // Add both variant images at the end for quick switching
+    if (selectedCaseType === 'snap' && metalVariant?.image) {
+      images.push({ url: metalVariant.image, caseType: 'metal' });
+    } else if (selectedCaseType === 'metal' && snapVariant?.image) {
+      images.push({ url: snapVariant.image, caseType: 'snap' });
+    }
+    
+    // Remove duplicates based on URL
+    const seen = new Set<string>();
+    return images.filter(img => {
+      if (seen.has(img.url)) return false;
+      seen.add(img.url);
+      return true;
+    });
   };
   
   const productImages = getProductImages();
+  const currentImage = productImages[selectedImageIndex]?.url || product?.image || '/placeholder.svg';
 
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const currentImage = productImages[selectedImageIndex] || displayImage;
-
-  // Reset image index when case type changes and show variant image
+  // Reset image index when case type changes - show the variant image
   useEffect(() => {
-    if (selectedVariant?.image) {
-      const newImages = getProductImages();
-      const variantIdx = newImages.indexOf(selectedVariant.image);
-      if (variantIdx >= 0) {
-        setSelectedImageIndex(variantIdx);
-      } else {
-        setSelectedImageIndex(0);
-      }
-    } else {
-      setSelectedImageIndex(0);
-    }
-  }, [selectedCaseType, selectedVariant?.image]);
+    setSelectedImageIndex(0);
+  }, [selectedCaseType]);
 
   // Get case type info from A+ content or use defaults
   const getCaseTypeInfo = (caseType: CaseType) => {
@@ -146,6 +154,14 @@ const ProductDetail = () => {
     // TODO: Implement actual cart functionality with Supabase
   };
 
+  const handleThumbnailClick = (index: number, caseType?: CaseType) => {
+    setSelectedImageIndex(index);
+    // If clicking on a variant image, also switch case type
+    if (caseType && caseType !== selectedCaseType) {
+      setSelectedCaseType(caseType);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -163,69 +179,88 @@ const ProductDetail = () => {
         </motion.button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Product Images */}
+          {/* Product Images - Main + Thumbnails on Right */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="relative space-y-4"
+            className="relative"
           >
-            {/* Main Image */}
-            <div className="aspect-[3/4] rounded-3xl overflow-hidden bg-secondary">
-              <img
-                src={currentImage}
-                alt={displayTitle}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            
-            {/* Badges */}
-            <div className="absolute top-4 left-4 flex flex-col gap-2">
-              {product.is_new && (
-                <Badge className="gradient-coral text-white border-0 px-4 py-1">
-                  New Arrival
-                </Badge>
-              )}
-              {product.is_top_design && (
-                <Badge className="gradient-primary text-white border-0 px-4 py-1">
-                  <Star className="w-3 h-3 mr-1" />
-                  Top Design
-                </Badge>
-              )}
-            </div>
+            <div className="flex gap-4">
+              {/* Main Image */}
+              <div className="flex-1 aspect-[3/4] rounded-3xl overflow-hidden bg-secondary relative">
+                <motion.img
+                  key={currentImage}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  src={currentImage}
+                  alt={displayTitle}
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Badges */}
+                <div className="absolute top-4 left-4 flex flex-col gap-2">
+                  {product.is_new && (
+                    <Badge className="gradient-coral text-white border-0 px-4 py-1">
+                      New Arrival
+                    </Badge>
+                  )}
+                  {product.is_top_design && (
+                    <Badge className="gradient-primary text-white border-0 px-4 py-1">
+                      <Star className="w-3 h-3 mr-1" />
+                      Top Design
+                    </Badge>
+                  )}
+                </div>
 
-            {/* Action Buttons */}
-            <div className="absolute top-4 right-4 flex flex-col gap-2">
-              <Button size="icon" variant="secondary" className="rounded-full">
-                <Heart className="w-4 h-4" />
-              </Button>
-              <Button size="icon" variant="secondary" className="rounded-full">
-                <Share2 className="w-4 h-4" />
-              </Button>
-            </div>
-
-            {/* Image Thumbnails */}
-            {productImages.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {productImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedImageIndex(idx)}
-                    className={cn(
-                      "w-16 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all",
-                      selectedImageIndex === idx
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <img
-                      src={img}
-                      alt={`${displayTitle} ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
+                {/* Action Buttons */}
+                <div className="absolute top-4 right-4 flex flex-col gap-2">
+                  <Button size="icon" variant="secondary" className="rounded-full">
+                    <Heart className="w-4 h-4" />
+                  </Button>
+                  <Button size="icon" variant="secondary" className="rounded-full">
+                    <Share2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-            )}
+
+              {/* Thumbnails on Right Side */}
+              {productImages.length > 1 && (
+                <ScrollArea className="w-20 h-[calc(100%)]">
+                  <div className="flex flex-col gap-2 pr-2">
+                    {productImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleThumbnailClick(idx, img.caseType)}
+                        className={cn(
+                          "relative w-16 h-20 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all",
+                          selectedImageIndex === idx
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "border-border hover:border-primary/50"
+                        )}
+                      >
+                        <img
+                          src={img.url}
+                          alt={`${displayTitle} ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Case type indicator badge */}
+                        {img.caseType && (
+                          <div className={cn(
+                            "absolute bottom-0.5 right-0.5 text-[8px] font-bold px-1 py-0.5 rounded",
+                            img.caseType === 'metal' 
+                              ? "bg-muted-foreground/80 text-white" 
+                              : "bg-primary/80 text-white"
+                          )}>
+                            {img.caseType === 'metal' ? 'M' : 'S'}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
           </motion.div>
 
           {/* Product Info */}
@@ -244,7 +279,12 @@ const ProductDetail = () => {
             {/* Title & Price */}
             <div>
               <h1 className="text-3xl md:text-4xl font-bold mb-2">{displayTitle}</h1>
-              <p className="text-2xl font-bold text-primary">₹{displayPrice}</p>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-primary">₹{displayPrice}</span>
+                {comparePrice && comparePrice > displayPrice && (
+                  <span className="text-lg text-muted-foreground line-through">₹{comparePrice}</span>
+                )}
+              </div>
             </div>
 
             {/* Case Type Selector */}
@@ -254,7 +294,6 @@ const ProductDetail = () => {
                 {(['snap', 'metal'] as CaseType[]).map((caseType) => {
                   const variant = product.product_variants?.find(v => v.case_type === caseType);
                   const info = getCaseTypeInfo(caseType);
-                  const price = variant?.price || product.base_price;
                   const isSelected = selectedCaseType === caseType;
                   
                   return (
@@ -273,8 +312,17 @@ const ProductDetail = () => {
                           <Check className="w-3 h-3 text-primary-foreground" />
                         </div>
                       )}
+                      {/* Variant Image Preview */}
+                      {variant?.image && (
+                        <div className="w-12 h-12 rounded-lg overflow-hidden mb-2 border border-border">
+                          <img 
+                            src={variant.image} 
+                            alt={info.label} 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
                       <div className="font-semibold mb-1">{info.label}</div>
-                      <div className="text-lg font-bold text-primary">₹{price}</div>
                       <ul className="mt-2 space-y-1">
                         {info.features.slice(0, 2).map((feature, idx) => (
                           <li key={idx} className="text-xs text-muted-foreground flex items-center gap-1">
@@ -454,6 +502,21 @@ const APlusBlockRenderer = ({ block }: { block: ContentBlock }) => {
         </div>
       );
     
+    case 'square_image':
+      return (
+        <div className="flex justify-center">
+          <div className="w-64 h-64 md:w-80 md:h-80 rounded-2xl overflow-hidden">
+            {block.imageUrl && (
+              <img 
+                src={block.imageUrl} 
+                alt={block.alt || 'Product image'} 
+                className="w-full h-full object-cover"
+              />
+            )}
+          </div>
+        </div>
+      );
+    
     case 'image_text':
       return (
         <div className={cn(
@@ -470,20 +533,7 @@ const APlusBlockRenderer = ({ block }: { block: ContentBlock }) => {
             )}
           </div>
           <div className="space-y-4">
-            {block.text && <p className="text-muted-foreground">{block.text}</p>}
-          </div>
-        </div>
-      );
-    
-    case 'square_image':
-      return (
-        <div className="flex justify-center">
-          <div className="aspect-square w-full max-w-md rounded-xl overflow-hidden">
-            <img 
-              src={block.imageUrl} 
-              alt={block.alt || 'Image'} 
-              className="w-full h-full object-cover"
-            />
+            <p className="text-muted-foreground text-lg">{block.text}</p>
           </div>
         </div>
       );
