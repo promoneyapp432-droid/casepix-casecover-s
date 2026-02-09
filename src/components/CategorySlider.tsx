@@ -88,9 +88,17 @@ const CategoryItem = ({ category, index }: CategoryItemProps) => {
         whileHover={{ scale: 1.05 }}
         className="flex items-center gap-3 px-4 py-3 bg-card rounded-xl shadow-sm border border-border hover:border-primary/50 hover:shadow-md transition-all duration-200 cursor-pointer min-w-[140px]"
       >
-        <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center text-xl shrink-0">
-          {category.icon}
-        </div>
+        {category.image ? (
+          <img
+            src={category.image}
+            alt={category.name}
+            className="w-10 h-10 rounded-lg object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center text-xl shrink-0">
+            {category.icon}
+          </div>
+        )}
         <span className="font-medium text-sm text-card-foreground whitespace-nowrap">
           {category.name}
         </span>

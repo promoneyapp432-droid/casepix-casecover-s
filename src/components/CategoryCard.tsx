@@ -18,10 +18,18 @@ const CategoryCard = ({ category, index }: CategoryCardProps) => {
         className="group relative overflow-hidden rounded-2xl bg-card shadow-card card-hover cursor-pointer"
       >
         <div className="aspect-square p-6 flex flex-col items-center justify-center gap-4">
-          {/* Icon Background */}
-          <div className="w-20 h-20 rounded-2xl gradient-primary flex items-center justify-center text-4xl group-hover:scale-110 transition-transform duration-300">
-            {category.icon}
-          </div>
+          {/* Icon / Image */}
+          {category.image ? (
+            <img
+              src={category.image}
+              alt={category.name}
+              className="w-20 h-20 rounded-2xl object-cover group-hover:scale-110 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-2xl gradient-primary flex items-center justify-center text-4xl group-hover:scale-110 transition-transform duration-300">
+              {category.icon}
+            </div>
+          )}
           
           {/* Category Name */}
           <h3 className="text-lg font-semibold text-card-foreground group-hover:text-primary transition-colors">
