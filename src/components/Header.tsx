@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ShoppingCart, User, Menu, X, Search, Shield, LogOut } from 'lucide-react';
+import logoImg from '@/assets/logo.png';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/context/StoreContext';
@@ -41,9 +42,7 @@ const Header = () => {
               whileHover={{ scale: 1.05 }}
               className="flex items-center gap-2"
             >
-              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">C</span>
-              </div>
+              <img src={logoImg} alt="CasePix" className="w-10 h-10 rounded-xl object-contain" />
               <span className="text-xl font-bold gradient-text">CasePix</span>
             </motion.div>
           </Link>

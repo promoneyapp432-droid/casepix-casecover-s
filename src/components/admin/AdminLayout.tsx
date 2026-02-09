@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/context/StoreContext';
+import logoImg from '@/assets/logo.png';
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
@@ -45,9 +46,7 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">C</span>
-            </div>
+            <img src={logoImg} alt="CasePix" className="w-8 h-8 rounded-lg object-contain" />
             <span className="font-bold gradient-text">CasePix Admin</span>
           </Link>
           <Button

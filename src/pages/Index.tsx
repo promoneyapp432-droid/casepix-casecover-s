@@ -151,9 +151,13 @@ const Index = () => {
               className="flex items-center justify-between mb-8"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-secondary text-2xl">
-                  {category.icon}
-                </div>
+              {category.image ? (
+                  <img src={category.image} alt={category.name} className="w-10 h-10 rounded-xl object-cover" />
+                ) : (
+                  <div className="p-2 rounded-xl bg-secondary text-2xl">
+                    {category.icon}
+                  </div>
+                )}
                 <div>
                   <h2 className="text-2xl md:text-3xl font-bold">{category.name}</h2>
                   <p className="text-muted-foreground mt-1">Explore {category.name.toLowerCase()} designs</p>
