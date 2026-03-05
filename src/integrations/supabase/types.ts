@@ -68,6 +68,45 @@ export type Database = {
         }
         Relationships: []
       }
+      case_templates: {
+        Row: {
+          case_type: Database["public"]["Enums"]["case_type"]
+          created_at: string
+          id: string
+          mask_height: number
+          mask_width: number
+          mask_x: number
+          mask_y: number
+          name: string
+          template_image: string
+          updated_at: string
+        }
+        Insert: {
+          case_type: Database["public"]["Enums"]["case_type"]
+          created_at?: string
+          id?: string
+          mask_height?: number
+          mask_width?: number
+          mask_x?: number
+          mask_y?: number
+          name: string
+          template_image: string
+          updated_at?: string
+        }
+        Update: {
+          case_type?: Database["public"]["Enums"]["case_type"]
+          created_at?: string
+          id?: string
+          mask_height?: number
+          mask_width?: number
+          mask_x?: number
+          mask_y?: number
+          name?: string
+          template_image?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -126,6 +165,70 @@ export type Database = {
             columns: ["model_id"]
             isOneToOne: false
             referencedRelation: "mobile_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design_images: {
+        Row: {
+          created_at: string
+          design_id: string
+          id: string
+          image_url: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          design_id: string
+          id?: string
+          image_url: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          design_id?: string
+          id?: string
+          image_url?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_images_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "designs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      designs: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "designs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
             referencedColumns: ["id"]
           },
         ]
