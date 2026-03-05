@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, FileSpreadsheet, Loader2, Image as ImageIcon, Package, FolderTree } from 'lucide-react';
+import { Plus, FileSpreadsheet, Loader2, Image as ImageIcon, Package, FolderTree, Palette, Layout, Smartphone } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,9 +25,11 @@ import CompatibleGroupManager from '@/components/admin/CompatibleGroupManager';
 import APlusContentEditor from '@/components/admin/APlusContentEditor';
 import ModelsTableView from '@/components/admin/ModelsTableView';
 import ExcelImportDialog from '@/components/admin/ExcelImportDialog';
-import QuickProductDialog from '@/components/admin/QuickProductDialog';
 import ProductsManager from '@/components/admin/ProductsManager';
 import CategoriesManager from '@/components/admin/CategoriesManager';
+import DesignsManager from '@/components/admin/DesignsManager';
+import CaseTemplatesManager from '@/components/admin/CaseTemplatesManager';
+import ProductCreator from '@/components/admin/ProductCreator';
 import {
   useMobileBrands,
   useMobileModels,
@@ -51,7 +53,6 @@ const AdminBrands = () => {
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<MobileModel | null>(null);
   const [modelFormData, setModelFormData] = useState({ name: '', brand_id: '', image: '' });
 
@@ -117,8 +118,16 @@ const AdminBrands = () => {
 
   return (
     <AdminLayout title="Phone Case">
-      <Tabs defaultValue="products" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+      <Tabs defaultValue="designs" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="designs" className="gap-2">
+            <Palette className="w-4 h-4" />
+            Designs
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="gap-2">
+            <Smartphone className="w-4 h-4" />
+            Templates
+          </TabsTrigger>
           <TabsTrigger value="products" className="gap-2">
             <Package className="w-4 h-4" />
             Products
@@ -128,25 +137,33 @@ const AdminBrands = () => {
             Categories
           </TabsTrigger>
           <TabsTrigger value="models">Models</TabsTrigger>
-          <TabsTrigger value="compatible">Compatible Groups</TabsTrigger>
+          <TabsTrigger value="compatible">Compatible</TabsTrigger>
           <TabsTrigger value="aplus">A+ Content</TabsTrigger>
         </TabsList>
 
-        {/* Products Tab */}
-        <TabsContent value="products" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-semibold">Manage Products</h2>
-              <p className="text-sm text-muted-foreground">
-                Add and manage phone case designs
-              </p>
-            </div>
-            <Button className="gradient-primary" onClick={() => setIsProductDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
-            </Button>
+        {/* Designs Tab */}
+        <TabsContent value="designs" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Manage Designs</h2>
+            <p className="text-sm text-muted-foreground">
+              Create artwork designs with multiple images, organized by category
+            </p>
           </div>
-          <ProductsManager />
+          <DesignsManager />
+        </TabsContent>
+
+        {/* Case Templates Tab */}
+        <TabsContent value="templates" className="space-y-4">
+          <CaseTemplatesManager />
+        </TabsContent>
+
+        {/* Products Tab - now with auto-merge creator */}
+        <TabsContent value="products" className="space-y-6">
+          <ProductCreator />
+          <div className="border-t pt-6">
+            <h2 className="text-lg font-semibold mb-2">Existing Products</h2>
+            <ProductsManager />
+          </div>
         </TabsContent>
 
         {/* Categories Tab */}
@@ -312,11 +329,6 @@ const AdminBrands = () => {
         preselectedBrandId={selectedBrandId || undefined}
       />
 
-      {/* Quick Product Dialog */}
-      <QuickProductDialog
-        open={isProductDialogOpen}
-        onOpenChange={setIsProductDialogOpen}
-      />
     </AdminLayout>
   );
 };
