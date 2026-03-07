@@ -55,12 +55,12 @@ export const useAutoProductCreation = () => {
       const images = design.design_images || [];
       if (images.length === 0) return false;
 
-      // Check for duplicate
+      // Check for duplicate using raw query approach
       const { data: existing } = await supabase
         .from('products')
         .select('id')
-        .eq('design_id' as any, design.id)
-        .eq('template_id' as any, template.id)
+        .filter('design_id', 'eq', design.id)
+        .filter('template_id', 'eq', template.id)
         .limit(1);
       if (existing && existing.length > 0) return false;
 
