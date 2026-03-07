@@ -77,6 +77,7 @@ export type Database = {
           mask_width: number
           mask_x: number
           mask_y: number
+          model_id: string | null
           name: string
           template_image: string
           updated_at: string
@@ -89,6 +90,7 @@ export type Database = {
           mask_width?: number
           mask_x?: number
           mask_y?: number
+          model_id?: string | null
           name: string
           template_image: string
           updated_at?: string
@@ -101,11 +103,20 @@ export type Database = {
           mask_width?: number
           mask_x?: number
           mask_y?: number
+          model_id?: string | null
           name?: string
           template_image?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "case_templates_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "mobile_models"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       categories: {
         Row: {
@@ -114,6 +125,7 @@ export type Database = {
           id: string
           image: string | null
           name: string
+          parent_id: string | null
           slug: string
         }
         Insert: {
@@ -122,6 +134,7 @@ export type Database = {
           id?: string
           image?: string | null
           name: string
+          parent_id?: string | null
           slug: string
         }
         Update: {
@@ -130,9 +143,18 @@ export type Database = {
           id?: string
           image?: string | null
           name?: string
+          parent_id?: string | null
           slug?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       compatible_groups: {
         Row: {
@@ -339,6 +361,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string | null
+          design_id: string | null
           id: string
           image: string | null
           image_2: string | null
@@ -349,6 +372,7 @@ export type Database = {
           is_new: boolean | null
           is_top_design: boolean | null
           name: string
+          template_id: string | null
           updated_at: string
         }
         Insert: {
@@ -356,6 +380,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          design_id?: string | null
           id?: string
           image?: string | null
           image_2?: string | null
@@ -366,6 +391,7 @@ export type Database = {
           is_new?: boolean | null
           is_top_design?: boolean | null
           name: string
+          template_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -373,6 +399,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          design_id?: string | null
           id?: string
           image?: string | null
           image_2?: string | null
@@ -383,6 +410,7 @@ export type Database = {
           is_new?: boolean | null
           is_top_design?: boolean | null
           name?: string
+          template_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -391,6 +419,20 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_design_id_fkey"
+            columns: ["design_id"]
+            isOneToOne: false
+            referencedRelation: "designs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "case_templates"
             referencedColumns: ["id"]
           },
         ]

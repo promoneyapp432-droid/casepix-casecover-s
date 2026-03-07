@@ -1,21 +1,13 @@
 import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, FileSpreadsheet, Loader2, Image as ImageIcon, Package, FolderTree, Palette, Layout, Smartphone } from 'lucide-react';
+import { Plus, FileSpreadsheet, Loader2, Package, Palette, Smartphone } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,10 +18,8 @@ import APlusContentEditor from '@/components/admin/APlusContentEditor';
 import ModelsTableView from '@/components/admin/ModelsTableView';
 import ExcelImportDialog from '@/components/admin/ExcelImportDialog';
 import ProductsManager from '@/components/admin/ProductsManager';
-import CategoriesManager from '@/components/admin/CategoriesManager';
 import DesignsManager from '@/components/admin/DesignsManager';
 import CaseTemplatesManager from '@/components/admin/CaseTemplatesManager';
-import ProductCreator from '@/components/admin/ProductCreator';
 import {
   useMobileBrands,
   useMobileModels,
@@ -45,18 +35,17 @@ const AdminBrands = () => {
   const { user, isAdmin, loading: authLoading } = useAuthContext();
   const { data: brands, isLoading: brandsLoading } = useMobileBrands();
   const { data: models, isLoading: modelsLoading } = useMobileModels();
-  
+
   const addModelMutation = useAddModel();
   const updateModelMutation = useUpdateModel();
   const deleteModelMutation = useDeleteModel();
-  
+
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<MobileModel | null>(null);
   const [modelFormData, setModelFormData] = useState({ name: '', brand_id: '', image: '' });
 
-  // Calculate model counts per brand
   const modelCounts = useMemo(() => {
     if (!models) return {};
     return models.reduce((acc, model) => {
@@ -91,24 +80,19 @@ const AdminBrands = () => {
 
   const openNewModelDialog = () => {
     setEditingModel(null);
-    setModelFormData({ 
-      name: '', 
-      brand_id: selectedBrandId || '', 
-      image: '' 
-    });
+    setModelFormData({ name: '', brand_id: selectedBrandId || '', image: '' });
     setIsModelDialogOpen(true);
   };
 
   const isLoading = brandsLoading || modelsLoading;
   const selectedBrand = brands?.find(b => b.id === selectedBrandId);
 
-  // Show auth warning if not logged in as admin
   if (!authLoading && (!user || !isAdmin)) {
     return (
       <AdminLayout title="Phone Case">
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>
-            You must be logged in as an admin to manage phone cases. 
+            You must be logged in as an admin to manage phone cases.
             Please <a href="/login" className="underline font-semibold">sign in</a> with admin credentials.
           </AlertDescription>
         </Alert>
@@ -119,7 +103,7 @@ const AdminBrands = () => {
   return (
     <AdminLayout title="Phone Case">
       <Tabs defaultValue="designs" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
           <TabsTrigger value="designs" className="gap-2">
             <Palette className="w-4 h-4" />
             Designs
@@ -132,10 +116,6 @@ const AdminBrands = () => {
             <Package className="w-4 h-4" />
             Products
           </TabsTrigger>
-          <TabsTrigger value="categories" className="gap-2">
-            <FolderTree className="w-4 h-4" />
-            Categories
-          </TabsTrigger>
           <TabsTrigger value="models">Models</TabsTrigger>
           <TabsTrigger value="compatible">Compatible</TabsTrigger>
           <TabsTrigger value="aplus">A+ Content</TabsTrigger>
@@ -146,41 +126,31 @@ const AdminBrands = () => {
           <div>
             <h2 className="text-lg font-semibold">Manage Designs</h2>
             <p className="text-sm text-muted-foreground">
-              Create artwork designs with multiple images, organized by category
+              Create categories, upload artwork images. Products auto-generate when templates exist.
             </p>
           </div>
           <DesignsManager />
         </TabsContent>
 
-        {/* Case Templates Tab */}
+        {/* Templates Tab */}
         <TabsContent value="templates" className="space-y-4">
           <CaseTemplatesManager />
         </TabsContent>
 
-        {/* Products Tab - now with auto-merge creator */}
-        <TabsContent value="products" className="space-y-6">
-          <ProductCreator />
-          <div className="border-t pt-6">
-            <h2 className="text-lg font-semibold mb-2">Existing Products</h2>
-            <ProductsManager />
-          </div>
-        </TabsContent>
-
-        {/* Categories Tab */}
-        <TabsContent value="categories" className="space-y-4">
+        {/* Products Tab */}
+        <TabsContent value="products" className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">Manage Categories</h2>
+            <h2 className="text-lg font-semibold">Products</h2>
             <p className="text-sm text-muted-foreground">
-              Organize products by categories like Anime, Marvel, etc.
+              Auto-generated from designs × templates. Edit or manage existing products.
             </p>
           </div>
-          <CategoriesManager />
+          <ProductsManager />
         </TabsContent>
 
-        {/* All Models Tab with Sidebar */}
+        {/* Models Tab */}
         <TabsContent value="models" className="space-y-0">
           <div className="flex h-[calc(100vh-280px)] min-h-[500px] rounded-xl border bg-background overflow-hidden">
-            {/* Brands Sidebar */}
             <BrandsSidebar
               brands={brands || []}
               selectedBrandId={selectedBrandId}
@@ -188,23 +158,19 @@ const AdminBrands = () => {
               modelCounts={modelCounts}
               isLoading={brandsLoading}
             />
-
-            {/* Main Content Area */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Header */}
               <div className="p-4 border-b flex flex-wrap gap-4 items-center justify-between bg-card">
                 <div>
                   <h2 className="text-lg font-semibold">
                     {selectedBrand ? `${selectedBrand.name} Models` : 'All Models'}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {selectedBrandId 
+                    {selectedBrandId
                       ? `${modelCounts[selectedBrandId] || 0} models`
                       : `${models?.length || 0} total models`
                     }
                   </p>
                 </div>
-                
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
                     <FileSpreadsheet className="w-4 h-4 mr-2" />
@@ -216,8 +182,6 @@ const AdminBrands = () => {
                   </Button>
                 </div>
               </div>
-
-              {/* Table Content */}
               <div className="flex-1 overflow-auto p-4">
                 {isLoading ? (
                   <div className="space-y-4">
@@ -226,7 +190,7 @@ const AdminBrands = () => {
                     ))}
                   </div>
                 ) : (
-                  <ModelsTableView 
+                  <ModelsTableView
                     brandId={selectedBrandId || undefined}
                     brandName={selectedBrand?.name}
                     onEditModel={(model) => handleEditModel(model)}
@@ -238,12 +202,10 @@ const AdminBrands = () => {
           </div>
         </TabsContent>
 
-        {/* Compatible Groups Tab */}
         <TabsContent value="compatible">
           <CompatibleGroupManager />
         </TabsContent>
 
-        {/* A+ Content Tab */}
         <TabsContent value="aplus">
           <APlusContentEditor />
         </TabsContent>
@@ -262,14 +224,10 @@ const AdminBrands = () => {
                 value={modelFormData.brand_id}
                 onValueChange={(value) => setModelFormData({ ...modelFormData, brand_id: value })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select brand" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                 <SelectContent>
                   {brands?.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id}>
-                      {brand.name}
-                    </SelectItem>
+                    <SelectItem key={brand.id} value={brand.id}>{brand.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -294,20 +252,14 @@ const AdminBrands = () => {
               />
               {modelFormData.image && (
                 <div className="mt-2">
-                  <img 
-                    src={modelFormData.image} 
-                    alt="Preview" 
-                    className="w-20 h-20 object-cover rounded border"
-                  />
+                  <img src={modelFormData.image} alt="Preview" className="w-20 h-20 object-cover rounded border" />
                 </div>
               )}
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setIsModelDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
+              <Button type="button" variant="outline" onClick={() => setIsModelDialogOpen(false)}>Cancel</Button>
+              <Button
+                type="submit"
                 className="gradient-primary"
                 disabled={addModelMutation.isPending || updateModelMutation.isPending || !modelFormData.brand_id}
               >
@@ -321,14 +273,12 @@ const AdminBrands = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Excel Import Dialog */}
       <ExcelImportDialog
         open={isImportDialogOpen}
         onOpenChange={setIsImportDialogOpen}
         brands={brands || []}
         preselectedBrandId={selectedBrandId || undefined}
       />
-
     </AdminLayout>
   );
 };
