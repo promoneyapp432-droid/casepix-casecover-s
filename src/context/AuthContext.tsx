@@ -1,5 +1,4 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 
 interface AuthUser {
   id: string;
@@ -19,11 +18,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Dev mode: always authenticated as admin, no login required
+const devUser: AuthUser = {
+  id: 'dev-admin',
+  email: 'admin@casepix.dev',
+  name: 'Admin',
+  role: 'admin',
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const auth = useAuth();
+  const value: AuthContextType = {
+    user: devUser,
+    loading: false,
+    isAdmin: true,
+    signIn: async () => ({ data: null, error: null }),
+    signUp: async () => ({ data: null, error: null }),
+    signOut: async () => ({ error: null }),
+  };
 
   return (
-    <AuthContext.Provider value={auth}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

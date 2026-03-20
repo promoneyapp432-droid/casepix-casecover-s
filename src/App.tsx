@@ -34,7 +34,7 @@ const App = () => (
               <Route path="/category/:categorySlug" element={<Products />} />
               <Route path="/product/:productId" element={<ProductDetail />} />
               <Route path="/cart" element={<Cart />} />
-              <Route path="/login" element={<Login />} />
+              {/* Login route removed - dev mode, full access */}
               
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
