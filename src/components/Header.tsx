@@ -87,53 +87,13 @@ const Header = () => {
               </motion.div>
             </Link>
 
-            {/* User Profile */}
-            {loading ? (
-              <div className="w-8 h-8 rounded-full bg-secondary animate-pulse" />
-            ) : user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-                  >
-                    <div className="w-7 h-7 gradient-primary rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-sm font-medium hidden sm:block">{user.name}</span>
-                  </motion.button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem className="flex items-center gap-2" disabled>
-                    <User className="w-4 h-4" />
-                    <span>{user.email}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {isAdmin && (
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin" className="flex items-center gap-2 cursor-pointer">
-                        <Shield className="w-4 h-4" />
-                        <span>Admin Panel</span>
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem 
-                    onClick={handleSignOut}
-                    className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Link to="/login">
-                <Button variant="outline" size="sm" className="rounded-full">
-                  Login
-                </Button>
-              </Link>
-            )}
-
+            {/* Admin Panel Link */}
+            <Link to="/admin">
+              <Button variant="outline" size="sm" className="rounded-full gap-1.5">
+                <Shield className="w-4 h-4" />
+                Admin
+              </Button>
+            </Link>
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
