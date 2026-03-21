@@ -71,8 +71,21 @@ const ProductCreator = () => {
         const maskW = (template.mask_width / 100) * canvas.width;
         const maskH = (template.mask_height / 100) * canvas.height;
 
+        // Use "cover" approach: fill mask area while maintaining aspect ratio
+        const designAspect = designImg.width / designImg.height;
+        const maskAspect = maskW / maskH;
+        let srcX = 0, srcY = 0, srcW = designImg.width, srcH = designImg.height;
+
+        if (designAspect > maskAspect) {
+          srcW = designImg.height * maskAspect;
+          srcX = (designImg.width - srcW) / 2;
+        } else {
+          srcH = designImg.width / maskAspect;
+          srcY = (designImg.height - srcH) / 2;
+        }
+
         // Draw design in mask area first (behind template)
-        ctx.drawImage(designImg, maskX, maskY, maskW, maskH);
+        ctx.drawImage(designImg, srcX, srcY, srcW, srcH, maskX, maskY, maskW, maskH);
 
         // Draw template on top (transparent areas show design through)
         ctx.drawImage(templateImg, 0, 0);
