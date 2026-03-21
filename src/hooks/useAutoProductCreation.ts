@@ -31,7 +31,20 @@ export const useAutoProductCreation = () => {
         const maskW = (template.mask_width / 100) * canvas.width;
         const maskH = (template.mask_height / 100) * canvas.height;
 
-        ctx.drawImage(designImg, maskX, maskY, maskW, maskH);
+        // Use "cover" approach: fill mask area while maintaining aspect ratio
+        const designAspect = designImg.width / designImg.height;
+        const maskAspect = maskW / maskH;
+        let srcX = 0, srcY = 0, srcW = designImg.width, srcH = designImg.height;
+
+        if (designAspect > maskAspect) {
+          srcW = designImg.height * maskAspect;
+          srcX = (designImg.width - srcW) / 2;
+        } else {
+          srcH = designImg.width / maskAspect;
+          srcY = (designImg.height - srcH) / 2;
+        }
+
+        ctx.drawImage(designImg, srcX, srcY, srcW, srcH, maskX, maskY, maskW, maskH);
         ctx.drawImage(templateImg, 0, 0);
 
         resolve(canvas.toDataURL('image/png'));
