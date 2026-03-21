@@ -249,10 +249,13 @@ export const useAutoProductCreation = () => {
     field: 'design_id' | 'template_id',
     value: string,
   ) => {
-    const { data: linkedProducts, error: linkedProductsError } = await supabase
+    const linkedProductsQuery = supabase
       .from('products')
-      .select('id')
-      .eq(field as any, value);
+      .select('id');
+
+    const { data: linkedProducts, error: linkedProductsError } = field === 'design_id'
+      ? await linkedProductsQuery.eq('design_id', value)
+      : await linkedProductsQuery.eq('template_id', value);
 
     if (linkedProductsError) throw linkedProductsError;
     if (!linkedProducts?.length) return 0;
