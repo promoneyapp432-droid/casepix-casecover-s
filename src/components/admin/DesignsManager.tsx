@@ -38,7 +38,7 @@ const DesignsManager = () => {
   const addDesignImage = useAddDesignImage();
   const deleteDesignImage = useDeleteDesignImage();
   const { uploadImage, isUploading } = useImageUpload();
-  const { createProductsForDesign } = useAutoProductCreation();
+  const { createProductsForDesign, deleteProductsForDesign } = useAutoProductCreation();
   const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,10 +125,16 @@ const DesignsManager = () => {
   const handleDelete = async (id: string) => {
     if (confirm('Delete this design and all its images?')) {
       try {
+        setAutoCreating(id);
+        await deleteProductsForDesign(id);
         await deleteDesign.mutateAsync(id);
+        queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
         toast.success('Design deleted');
       } catch (err: any) {
         toast.error(err.message);
+      } finally {
+        setAutoCreating(null);
       }
     }
   };
