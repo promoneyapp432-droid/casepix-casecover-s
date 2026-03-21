@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, FileSpreadsheet, Loader2, Smartphone, ChevronDown, ChevronRight, Pencil, Trash2, Eye, EyeOff, Search, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ import ImageUploader from '@/components/admin/ImageUploader';
 import ExcelImportDialog from '@/components/admin/ExcelImportDialog';
 import { useAutoProductCreation } from '@/hooks/useAutoProductCreation';
 import { useQueryClient } from '@tanstack/react-query';
+import { detectMaskFromTemplateImage, getDefaultTemplateMask, TemplateMaskBounds } from '@/lib/templateMask';
 
 type CaseType = Database['public']['Enums']['case_type'];
 
@@ -55,7 +56,7 @@ const ModelsManager = () => {
   const updateGroup = useUpdateCompatibleGroup();
   const removeFromGroup = useRemoveFromCompatibleGroup();
   const bulkAddCompatible = useBulkAddToCompatibleGroup();
-  const { createProductsForTemplate } = useAutoProductCreation();
+  const { createProductsForTemplate, deleteProductsForTemplate } = useAutoProductCreation();
   const queryClient = useQueryClient();
 
   const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
@@ -74,8 +75,10 @@ const ModelsManager = () => {
   const [autoCreating, setAutoCreating] = useState(false);
   const [templateFormData, setTemplateFormData] = useState({
     name: '', case_type: 'metal' as CaseType, template_image: '',
-    mask_x: 20, mask_y: 15, mask_width: 60, mask_height: 70, model_id: '',
+    model_id: '',
   });
+  const [detectedMask, setDetectedMask] = useState<TemplateMaskBounds>(getDefaultTemplateMask);
+  const [isDetectingMask, setIsDetectingMask] = useState(false);
 
   // Bulk compatible add state
   const [compatibleSearch, setCompatibleSearch] = useState('');
@@ -101,6 +104,30 @@ const ModelsManager = () => {
       return next;
     });
   };
+
+  useEffect(() => {
+    const templateImageUrl = templateFormData.template_image;
+    if (!templateImageUrl) {
+      setDetectedMask(getDefaultTemplateMask());
+      setIsDetectingMask(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsDetectingMask(true);
+
+    detectMaskFromTemplateImage(templateImageUrl)
+      .then((mask) => {
+        if (!isCancelled) setDetectedMask(mask);
+      })
+      .finally(() => {
+        if (!isCancelled) setIsDetectingMask(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [templateFormData.template_image]);
 
   // Brand handlers
   const handleAddBrand = async (e: React.FormEvent) => {
@@ -147,42 +174,61 @@ const ModelsManager = () => {
     e.preventDefault();
     if (!templateFormData.template_image) { toast.error('Upload a template image'); return; }
     try {
+      let mask = detectedMask;
+      if (mask.mask_width <= 0 || mask.mask_height <= 0) {
+        mask = await detectMaskFromTemplateImage(templateFormData.template_image);
+        setDetectedMask(mask);
+      }
+
       const payload = {
         name: templateFormData.name,
         case_type: templateFormData.case_type,
         template_image: templateFormData.template_image,
-        mask_x: templateFormData.mask_x, mask_y: templateFormData.mask_y,
-        mask_width: templateFormData.mask_width, mask_height: templateFormData.mask_height,
+        mask_x: mask.mask_x,
+        mask_y: mask.mask_y,
+        mask_width: mask.mask_width,
+        mask_height: mask.mask_height,
         model_id: templateFormData.model_id || null,
       };
+
+      let templateToSync: CaseTemplate;
+
       if (editingTemplate) {
-        await updateTemplate.mutateAsync({ id: editingTemplate.id, data: payload });
+        const updated = await updateTemplate.mutateAsync({ id: editingTemplate.id, data: payload });
+        templateToSync = updated || ({ ...editingTemplate, ...payload } as CaseTemplate);
         toast.success('Template updated');
       } else {
-        await addTemplate.mutateAsync(payload as any);
+        const created = await addTemplate.mutateAsync(payload as any);
+        templateToSync = created;
         toast.success('Template created');
-        setAutoCreating(true);
-        const { data: newTemplates } = await (await import('@/integrations/supabase/client')).supabase
-          .from('case_templates').select('*').order('created_at', { ascending: false }).limit(1);
-        if (newTemplates?.[0]) {
-          const count = await createProductsForTemplate(newTemplates[0] as CaseTemplate);
-          if (count > 0) toast.success(`Auto-created ${count} products`);
-          queryClient.invalidateQueries({ queryKey: ['admin-products'] });
-          queryClient.invalidateQueries({ queryKey: ['products'] });
-        }
-        setAutoCreating(false);
       }
+
+      setAutoCreating(true);
+      const count = await createProductsForTemplate(templateToSync, { upsertExisting: true });
+      if (count > 0) {
+        toast.success(`${editingTemplate ? 'Synced' : 'Auto-created'} ${count} products`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+
       setIsTemplateDialogOpen(false);
       setEditingTemplate(null);
-    } catch (err: any) { toast.error(err.message); setAutoCreating(false); }
+      setTemplateFormData({ name: '', case_type: 'metal', template_image: '', model_id: '' });
+      setDetectedMask(getDefaultTemplateMask());
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save template');
+    } finally {
+      setAutoCreating(false);
+    }
   };
 
   const openNewTemplate = (modelId: string) => {
     setEditingTemplate(null);
     setTemplateFormData({
       name: '', case_type: 'metal', template_image: '',
-      mask_x: 20, mask_y: 15, mask_width: 60, mask_height: 70, model_id: modelId,
+      model_id: modelId,
     });
+    setDetectedMask(getDefaultTemplateMask());
     setIsTemplateDialogOpen(true);
   };
 
@@ -190,10 +236,38 @@ const ModelsManager = () => {
     setEditingTemplate(t);
     setTemplateFormData({
       name: t.name, case_type: t.case_type, template_image: t.template_image,
-      mask_x: t.mask_x, mask_y: t.mask_y, mask_width: t.mask_width, mask_height: t.mask_height,
       model_id: (t as any).model_id || '',
     });
+    setDetectedMask({
+      mask_x: Number(t.mask_x),
+      mask_y: Number(t.mask_y),
+      mask_width: Number(t.mask_width),
+      mask_height: Number(t.mask_height),
+    });
     setIsTemplateDialogOpen(true);
+  };
+
+  const handleDeleteTemplate = async (template: CaseTemplate) => {
+    if (!confirm('Delete this template and all linked products?')) return;
+
+    try {
+      setAutoCreating(true);
+      const deletedProducts = await deleteProductsForTemplate(template.id);
+      await deleteTemplate.mutateAsync(template.id);
+
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+
+      if (deletedProducts > 0) {
+        toast.success(`Template deleted and ${deletedProducts} linked products removed`);
+      } else {
+        toast.success('Template deleted');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete template');
+    } finally {
+      setAutoCreating(false);
+    }
   };
 
   // Compatible handlers
@@ -261,7 +335,7 @@ const ModelsManager = () => {
       {autoCreating && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
-          <span className="text-sm">Auto-creating products...</span>
+          <span className="text-sm">Syncing products with designs and templates...</span>
         </div>
       )}
 
@@ -343,7 +417,7 @@ const ModelsManager = () => {
                                       <Pencil className="w-3 h-3" />
                                     </Button>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => {
-                                      if (confirm('Delete this template?')) deleteTemplate.mutateAsync(t.id);
+                                      handleDeleteTemplate(t);
                                     }}>
                                       <Trash2 className="w-3 h-3" />
                                     </Button>
@@ -481,30 +555,44 @@ const ModelsManager = () => {
               value={templateFormData.template_image}
               onChange={url => setTemplateFormData({ ...templateFormData, template_image: url || '' })}
               folder="templates"
-              label="Case Mockup Image (PNG with transparent area)"
+              label="Case Mockup Image"
             />
-            <div>
-              <Label className="text-xs text-muted-foreground">Mask Area (% position & size)</Label>
-              <div className="grid grid-cols-4 gap-2 mt-1">
-                {(['mask_x', 'mask_y', 'mask_width', 'mask_height'] as const).map(field => (
-                  <div key={field}>
-                    <Label className="text-[10px]">{field.replace('mask_', '').replace('x', 'X %').replace('y', 'Y %').replace('width', 'Width %').replace('height', 'Height %')}</Label>
-                    <Input type="number" min={0} max={100} value={templateFormData[field]}
-                      onChange={e => setTemplateFormData({ ...templateFormData, [field]: +e.target.value })} />
-                  </div>
-                ))}
-              </div>
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <Label className="text-xs text-muted-foreground">Auto-detected mask area from inner white phone-back region</Label>
+              {isDetectingMask ? (
+                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Detecting mask area...
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 mt-2 text-[11px]">
+                  <div><span className="text-muted-foreground">X</span><p className="font-medium">{detectedMask.mask_x}%</p></div>
+                  <div><span className="text-muted-foreground">Y</span><p className="font-medium">{detectedMask.mask_y}%</p></div>
+                  <div><span className="text-muted-foreground">W</span><p className="font-medium">{detectedMask.mask_width}%</p></div>
+                  <div><span className="text-muted-foreground">H</span><p className="font-medium">{detectedMask.mask_height}%</p></div>
+                </div>
+              )}
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Manual X/Y/Width/Height settings have been removed.
+              </p>
             </div>
-            {templateFormData.template_image && (
+            {templateFormData.template_image && !isDetectingMask && (
               <div className="relative w-40 h-56 mx-auto bg-muted rounded-lg overflow-hidden border">
                 <img src={templateFormData.template_image} alt="Preview" className="w-full h-full object-contain" />
-                <div className="absolute border-2 border-dashed border-primary bg-primary/20 rounded"
-                  style={{ left: `${templateFormData.mask_x}%`, top: `${templateFormData.mask_y}%`, width: `${templateFormData.mask_width}%`, height: `${templateFormData.mask_height}%` }} />
+                <div
+                  className="absolute border-2 border-dashed border-primary bg-primary/20 rounded"
+                  style={{
+                    left: `${detectedMask.mask_x}%`,
+                    top: `${detectedMask.mask_y}%`,
+                    width: `${detectedMask.mask_width}%`,
+                    height: `${detectedMask.mask_height}%`,
+                  }}
+                />
               </div>
             )}
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" className="gradient-primary" disabled={addTemplate.isPending || updateTemplate.isPending}>
+              <Button type="submit" className="gradient-primary" disabled={addTemplate.isPending || updateTemplate.isPending || isDetectingMask}>
                 {(addTemplate.isPending || updateTemplate.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 {editingTemplate ? 'Update' : 'Create & Auto-Generate Products'}
               </Button>

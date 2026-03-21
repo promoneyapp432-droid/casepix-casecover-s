@@ -49,12 +49,12 @@ const ProductsManager = () => {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from('product_variants').delete().eq('product_id', id);
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Product deleted');
     },
     onError: (error) => toast.error('Failed to delete: ' + error.message),
