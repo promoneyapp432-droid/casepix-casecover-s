@@ -28,7 +28,9 @@ export interface CaseTemplate {
   mask_y: number;
   mask_width: number;
   mask_height: number;
+  model_id: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export const useDesigns = () => {
@@ -149,8 +151,13 @@ export const useAddCaseTemplate = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: Omit<CaseTemplate, 'id' | 'created_at' | 'updated_at'>) => {
-      const { error } = await supabase.from('case_templates').insert(data as any);
+      const { data: created, error } = await supabase
+        .from('case_templates')
+        .insert(data as any)
+        .select('*')
+        .single();
       if (error) throw error;
+      return created as CaseTemplate;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case-templates'] });
@@ -162,8 +169,14 @@ export const useUpdateCaseTemplate = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CaseTemplate> }) => {
-      const { error } = await supabase.from('case_templates').update(data as any).eq('id', id);
+      const { data: updated, error } = await supabase
+        .from('case_templates')
+        .update(data as any)
+        .eq('id', id)
+        .select('*')
+        .single();
       if (error) throw error;
+      return updated as CaseTemplate;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['case-templates'] });
