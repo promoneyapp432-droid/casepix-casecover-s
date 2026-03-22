@@ -68,7 +68,7 @@ const findLargestWhiteRegion = (
 
           visited[next] = 1;
           const npi = next * 4;
-          if (isWhitePixel(data[npi], data[npi + 1], data[npi + 2], data[npi + 3])) {
+          if (isTransparentPixel(data[npi], data[npi + 1], data[npi + 2], data[npi + 3])) {
             stack.push(next);
           }
         }
