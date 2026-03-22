@@ -16,57 +16,11 @@ export const useAutoProductCreation = () => {
   ), []);
 
   const mergeImages = useCallback(async (designImageUrl: string, template: CaseTemplate): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject('Canvas context not found');
-
-      const templateImg = new Image();
-      templateImg.crossOrigin = 'anonymous';
-      const designImg = new Image();
-      designImg.crossOrigin = 'anonymous';
-
-      let loadedCount = 0;
-      const onBothLoaded = () => {
-        loadedCount++;
-        if (loadedCount < 2) return;
-
-        canvas.width = templateImg.width;
-        canvas.height = templateImg.height;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        const maskX = (template.mask_x / 100) * canvas.width;
-        const maskY = (template.mask_y / 100) * canvas.height;
-        const maskW = (template.mask_width / 100) * canvas.width;
-        const maskH = (template.mask_height / 100) * canvas.height;
-
-        // Use "cover" approach: fill mask area while maintaining aspect ratio
-        const designAspect = designImg.width / designImg.height;
-        const maskAspect = maskW / maskH;
-        let srcX = 0, srcY = 0, srcW = designImg.width, srcH = designImg.height;
-
-        if (designAspect > maskAspect) {
-          srcW = designImg.height * maskAspect;
-          srcX = (designImg.width - srcW) / 2;
-        } else {
-          srcH = designImg.width / maskAspect;
-          srcY = (designImg.height - srcH) / 2;
-        }
-
-        ctx.drawImage(designImg, srcX, srcY, srcW, srcH, maskX, maskY, maskW, maskH);
-        ctx.drawImage(templateImg, 0, 0);
-
-        resolve(canvas.toDataURL('image/png'));
-      };
-
-      templateImg.onload = onBothLoaded;
-      designImg.onload = onBothLoaded;
-      templateImg.onerror = () => reject('Failed to load template');
-      designImg.onerror = () => reject('Failed to load design');
-
-      designImg.src = designImageUrl;
-      templateImg.src = template.template_image;
-    });
+    const [designImg, templateImg] = await Promise.all([
+      loadImage(designImageUrl),
+      loadImage(template.template_image),
+    ]);
+    return mergeDesignWithTemplate(designImg, templateImg);
   }, []);
 
   const buildMergedProductImages = useCallback(async (
