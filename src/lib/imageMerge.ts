@@ -4,15 +4,10 @@
  * that shape, then overlays the template frame on top.
  */
 
-const WHITE_THRESHOLD = 230;
-const MAX_COLOR_DIFF = 25;
-const MIN_ALPHA = 20;
+const TRANSPARENT_THRESHOLD = 128;
 
-const isWhitePixel = (r: number, g: number, b: number, a: number): boolean => {
-  if (a < MIN_ALPHA) return false;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  return r >= WHITE_THRESHOLD && g >= WHITE_THRESHOLD && b >= WHITE_THRESHOLD && (max - min) <= MAX_COLOR_DIFF;
+const isTransparentPixel = (_r: number, _g: number, _b: number, a: number): boolean => {
+  return a < TRANSPARENT_THRESHOLD;
 };
 
 /**
