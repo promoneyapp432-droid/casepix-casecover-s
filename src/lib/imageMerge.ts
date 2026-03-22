@@ -33,7 +33,7 @@ const findLargestWhiteRegion = (
       if (visited[idx]) continue;
 
       const pi = idx * 4;
-      if (!isWhitePixel(data[pi], data[pi + 1], data[pi + 2], data[pi + 3])) {
+      if (!isTransparentPixel(data[pi], data[pi + 1], data[pi + 2], data[pi + 3])) {
         visited[idx] = 1;
         continue;
       }
