@@ -159,25 +159,8 @@ export const mergeDesignWithTemplate = (
   }
   ctx.putImageData(designData, 0, 0);
 
-  // Step 4: Create modified template with white area made transparent, draw on top
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = W;
-  tempCanvas.height = H;
-  const tempCtx = tempCanvas.getContext('2d')!;
-  tempCtx.drawImage(templateImg, 0, 0);
-  const tData = tempCtx.getImageData(0, 0, W, H);
-  const tPixels = tData.data;
-
-  for (let i = 0; i < W * H; i++) {
-    if (mask[i]) {
-      const pi = i * 4;
-      tPixels[pi + 3] = 0; // Make white pixels transparent
-    }
-  }
-  tempCtx.putImageData(tData, 0, 0);
-
-  // Draw the case frame (with transparent cutout) on top of the design
-  ctx.drawImage(tempCanvas, 0, 0);
+  // Step 4: Overlay the template directly on top (transparent areas already cut out)
+  ctx.drawImage(templateImg, 0, 0);
 
   return cvs.toDataURL('image/png');
 };
