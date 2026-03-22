@@ -44,7 +44,7 @@ const DesignsManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingDesign, setEditingDesign] = useState<Design | null>(null);
   const [formData, setFormData] = useState({ name: '', category_id: '' });
@@ -52,6 +52,7 @@ const DesignsManager = () => {
   const [expandedDesigns, setExpandedDesigns] = useState<Set<string>>(new Set());
   const [autoCreating, setAutoCreating] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const newDesignFileRef = useRef<HTMLInputElement | null>(null);
 
   // Category helpers
   const parentCategories = (categories as Category[] | undefined)?.filter(c => !(c as any).parent_id) || [];
@@ -92,34 +93,69 @@ const DesignsManager = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingDesign) {
-        await updateDesign.mutateAsync({
-          id: editingDesign.id,
-          data: { name: formData.name, category_id: formData.category_id || null },
+  // Direct image upload → auto-create design
+  const handleDirectImageUpload = async (files: FileList) => {
+    if (selectedCategoryId === 'all') {
+      toast.error('Please select a category first');
+      return;
+    }
+
+    for (const file of Array.from(files)) {
+      const designName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      try {
+        // Create design
+        const design = await addDesign.mutateAsync({
+          name: designName,
+          category_id: selectedCategoryId,
         });
-        toast.success('Design updated');
-      } else {
-        await addDesign.mutateAsync({
-          name: formData.name,
-          category_id: formData.category_id || null,
-        });
-        toast.success('Design created');
+
+        // Upload image
+        const url = await uploadImage(file, 'designs');
+        if (url) {
+          await addDesignImage.mutateAsync({
+            design_id: design.id,
+            image_url: url,
+            sort_order: 0,
+          });
+
+          // Auto-create products
+          setAutoCreating(design.id);
+          const updatedDesign = {
+            ...design,
+            design_images: [{ id: 'temp', design_id: design.id, image_url: url, sort_order: 0, created_at: '' }],
+          };
+          const count = await createProductsForDesign(updatedDesign);
+          if (count > 0) toast.success(`Auto-created ${count} products for "${designName}"`);
+          setAutoCreating(null);
+          queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+          queryClient.invalidateQueries({ queryKey: ['products'] });
+        }
+      } catch (err: any) {
+        toast.error(`Failed to create design "${designName}": ${err.message}`);
       }
-      setIsDialogOpen(false);
-      setEditingDesign(null);
-      setFormData({ name: '', category_id: '' });
-    } catch (err: any) {
-      toast.error(err.message);
     }
   };
 
   const handleEdit = (design: Design) => {
     setEditingDesign(design);
     setFormData({ name: design.name, category_id: design.category_id || '' });
-    setIsDialogOpen(true);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDesign) return;
+    try {
+      await updateDesign.mutateAsync({
+        id: editingDesign.id,
+        data: { name: formData.name, category_id: formData.category_id || null },
+      });
+      toast.success('Design updated');
+      setIsEditDialogOpen(false);
+      setEditingDesign(null);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -151,9 +187,7 @@ const DesignsManager = () => {
       });
       toast.success('Image added');
 
-      // Auto-create products for this design
       if (design && currentImages.length === 0) {
-        // First image added - trigger auto-product creation
         setAutoCreating(designId);
         const updatedDesign = { ...design, design_images: [...currentImages, { id: 'temp', design_id: designId, image_url: url, sort_order: currentImages.length, created_at: '' }] };
         const count = await createProductsForDesign(updatedDesign);
@@ -176,7 +210,9 @@ const DesignsManager = () => {
 
   const generateSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-  const isPending = addDesign.isPending || updateDesign.isPending;
+  const selectedCategoryName = selectedCategoryId !== 'all'
+    ? (categories as Category[] | undefined)?.find(c => c.id === selectedCategoryId)?.name
+    : null;
 
   return (
     <div className="space-y-4">
@@ -257,14 +293,26 @@ const DesignsManager = () => {
               <List className="w-4 h-4" />
             </Button>
           </div>
-          <Button className="gradient-primary" onClick={() => {
-            setEditingDesign(null);
-            setFormData({ name: '', category_id: selectedCategoryId !== 'all' ? selectedCategoryId : '' });
-            setIsDialogOpen(true);
-          }}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Design
+          <Button
+            className="gradient-primary"
+            onClick={() => newDesignFileRef.current?.click()}
+            disabled={selectedCategoryId === 'all'}
+            title={selectedCategoryId === 'all' ? 'Select a category first' : `Upload design to ${selectedCategoryName}`}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {selectedCategoryId === 'all' ? 'Select Category First' : `Upload to ${selectedCategoryName}`}
           </Button>
+          <input
+            ref={newDesignFileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) handleDirectImageUpload(e.target.files);
+              e.target.value = '';
+            }}
+          />
         </div>
       </div>
 
@@ -274,10 +322,10 @@ const DesignsManager = () => {
       ) : filteredDesigns.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>No designs yet. Create your first design!</p>
+          <p>No designs yet. {selectedCategoryId === 'all' ? 'Select a category and upload your first design!' : 'Upload your first design!'}</p>
         </div>
       ) : viewMode === 'grid' ? (
-        /* Grid View */
+        /* Grid View - hover overlay */
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredDesigns.map((design) => {
             const images = design.design_images || [];
@@ -287,67 +335,75 @@ const DesignsManager = () => {
                 key={design.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="border rounded-xl overflow-hidden bg-card group"
+                className="relative rounded-xl overflow-hidden bg-muted group cursor-pointer"
+                style={{ aspectRatio: '1/2' }}
               >
-                {/* Image area - 1:2 ratio (100mm x 200mm) */}
-                <div
-                  className="relative bg-muted cursor-pointer"
-                  style={{ aspectRatio: '1/2' }}
-                  onClick={() => fileInputRefs.current[design.id]?.click()}
-                >
-                  {firstImage ? (
-                    <img src={firstImage} alt={design.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center">
-                      {isUploading ? (
-                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                      ) : (
-                        <>
-                          <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                          <span className="text-xs text-muted-foreground">Upload Image</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {autoCreating === design.id && (
-                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                      <div className="text-center">
-                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
-                        <p className="text-xs mt-2">Creating products...</p>
-                      </div>
-                    </div>
-                  )}
-                  {images.length > 1 && (
-                    <Badge className="absolute top-2 right-2 text-xs">{images.length} imgs</Badge>
-                  )}
-                  <input
-                    ref={(el) => { fileInputRefs.current[design.id] = el; }}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleAddImage(design.id, file);
-                      e.target.value = '';
-                    }}
-                  />
-                </div>
-                <div className="p-3">
-                  <p className="text-sm font-medium truncate">{design.name}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-muted-foreground">
-                      {design.category?.name || 'No category'}
-                    </span>
-                    <div className="flex gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(design)}>
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(design.id)}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                {firstImage ? (
+                  <img src={firstImage} alt={design.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div
+                    className="w-full h-full flex flex-col items-center justify-center"
+                    onClick={() => fileInputRefs.current[design.id]?.click()}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                        <span className="text-xs text-muted-foreground">Upload Image</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {autoCreating === design.id && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-20">
+                    <div className="text-center">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                      <p className="text-xs mt-2">Creating products...</p>
                     </div>
                   </div>
+                )}
+
+                {images.length > 1 && (
+                  <Badge className="absolute top-2 right-2 text-xs z-10">{images.length} imgs</Badge>
+                )}
+
+                {/* Hover overlay with name, category, edit, delete */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3 z-10">
+                  <p className="text-white text-sm font-semibold truncate">{design.name}</p>
+                  <p className="text-white/70 text-xs truncate">{design.category?.name || 'No category'}</p>
+                  <div className="flex gap-1 mt-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={(e) => { e.stopPropagation(); handleEdit(design); }}
+                    >
+                      <Pencil className="w-3 h-3 mr-1" /> Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(design.id); }}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" /> Delete
+                    </Button>
+                  </div>
                 </div>
+
+                <input
+                  ref={(el) => { fileInputRefs.current[design.id] = el; }}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleAddImage(design.id, file);
+                    e.target.value = '';
+                  }}
+                />
               </motion.div>
             );
           })}
@@ -452,13 +508,13 @@ const DesignsManager = () => {
         </div>
       )}
 
-      {/* Add/Edit Design Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Edit Design Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingDesign ? 'Edit Design' : 'New Design'}</DialogTitle>
+            <DialogTitle>Edit Design</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleEditSubmit} className="space-y-4">
             <div>
               <Label>Name</Label>
               <Input
@@ -492,10 +548,10 @@ const DesignsManager = () => {
               </Select>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" className="gradient-primary" disabled={isPending}>
-                {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {editingDesign ? 'Update' : 'Create'}
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" className="gradient-primary" disabled={updateDesign.isPending}>
+                {updateDesign.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Update
               </Button>
             </div>
           </form>
