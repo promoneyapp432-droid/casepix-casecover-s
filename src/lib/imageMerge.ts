@@ -154,7 +154,7 @@ export const mergeDesignWithTemplate = (
   for (let i = 0; i < W * H; i++) {
     if (!mask[i]) {
       const pi = i * 4;
-      dPixels[pi + 3] = 0; // Make transparent where template wasn't white
+      dPixels[pi + 3] = 0; // Make transparent where template wasn't transparent
     }
   }
   ctx.putImageData(designData, 0, 0);
