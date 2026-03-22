@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { CaseTemplate, Design } from '@/hooks/useDesigns';
+import { mergeDesignWithTemplate, loadImage } from '@/lib/imageMerge';
 
 type ProductSyncOptions = {
   upsertExisting?: boolean;
