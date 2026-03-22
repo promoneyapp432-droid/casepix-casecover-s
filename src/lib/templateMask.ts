@@ -12,20 +12,15 @@ const DEFAULT_MASK: TemplateMaskBounds = {
   mask_height: 70,
 };
 
-const WHITE_THRESHOLD = 235;
-const MAX_COLOR_DIFF = 20;
-const MIN_ALPHA = 20;
+const TRANSPARENT_THRESHOLD = 128;
 const MIN_COMPONENT_AREA_RATIO = 0.01;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const toPercent = (value: number) => Number(clamp(value, 0, 100).toFixed(2));
 
-const isWhitePixel = (r: number, g: number, b: number, a: number) => {
-  if (a < MIN_ALPHA) return false;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  return r >= WHITE_THRESHOLD && g >= WHITE_THRESHOLD && b >= WHITE_THRESHOLD && (max - min) <= MAX_COLOR_DIFF;
+const isTransparentPixel = (_r: number, _g: number, _b: number, a: number) => {
+  return a < TRANSPARENT_THRESHOLD;
 };
 
 export const detectMaskFromTemplateImage = async (imageUrl: string): Promise<TemplateMaskBounds> => {
@@ -66,7 +61,7 @@ export const detectMaskFromTemplateImage = async (imageUrl: string): Promise<Tem
         if (visited[idx]) continue;
 
         const pixelIndex = idx * 4;
-        if (!isWhitePixel(data[pixelIndex], data[pixelIndex + 1], data[pixelIndex + 2], data[pixelIndex + 3])) {
+        if (!isTransparentPixel(data[pixelIndex], data[pixelIndex + 1], data[pixelIndex + 2], data[pixelIndex + 3])) {
           visited[idx] = 1;
           continue;
         }
@@ -107,7 +102,7 @@ export const detectMaskFromTemplateImage = async (imageUrl: string): Promise<Tem
             if (Math.abs(nx - cx) + Math.abs(ny - cy) !== 1) continue;
 
             const nextPixel = next * 4;
-            if (isWhitePixel(data[nextPixel], data[nextPixel + 1], data[nextPixel + 2], data[nextPixel + 3])) {
+            if (isTransparentPixel(data[nextPixel], data[nextPixel + 1], data[nextPixel + 2], data[nextPixel + 3])) {
               visited[next] = 1;
               stack.push(next);
             } else {

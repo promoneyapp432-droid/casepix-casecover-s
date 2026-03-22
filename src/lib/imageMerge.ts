@@ -4,15 +4,10 @@
  * that shape, then overlays the template frame on top.
  */
 
-const WHITE_THRESHOLD = 230;
-const MAX_COLOR_DIFF = 25;
-const MIN_ALPHA = 20;
+const TRANSPARENT_THRESHOLD = 128;
 
-const isWhitePixel = (r: number, g: number, b: number, a: number): boolean => {
-  if (a < MIN_ALPHA) return false;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  return r >= WHITE_THRESHOLD && g >= WHITE_THRESHOLD && b >= WHITE_THRESHOLD && (max - min) <= MAX_COLOR_DIFF;
+const isTransparentPixel = (_r: number, _g: number, _b: number, a: number): boolean => {
+  return a < TRANSPARENT_THRESHOLD;
 };
 
 /**
@@ -38,7 +33,7 @@ const findLargestWhiteRegion = (
       if (visited[idx]) continue;
 
       const pi = idx * 4;
-      if (!isWhitePixel(data[pi], data[pi + 1], data[pi + 2], data[pi + 3])) {
+      if (!isTransparentPixel(data[pi], data[pi + 1], data[pi + 2], data[pi + 3])) {
         visited[idx] = 1;
         continue;
       }
@@ -73,7 +68,7 @@ const findLargestWhiteRegion = (
 
           visited[next] = 1;
           const npi = next * 4;
-          if (isWhitePixel(data[npi], data[npi + 1], data[npi + 2], data[npi + 3])) {
+          if (isTransparentPixel(data[npi], data[npi + 1], data[npi + 2], data[npi + 3])) {
             stack.push(next);
           }
         }
@@ -159,30 +154,13 @@ export const mergeDesignWithTemplate = (
   for (let i = 0; i < W * H; i++) {
     if (!mask[i]) {
       const pi = i * 4;
-      dPixels[pi + 3] = 0; // Make transparent where template wasn't white
+      dPixels[pi + 3] = 0; // Make transparent where template wasn't transparent
     }
   }
   ctx.putImageData(designData, 0, 0);
 
-  // Step 4: Create modified template with white area made transparent, draw on top
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = W;
-  tempCanvas.height = H;
-  const tempCtx = tempCanvas.getContext('2d')!;
-  tempCtx.drawImage(templateImg, 0, 0);
-  const tData = tempCtx.getImageData(0, 0, W, H);
-  const tPixels = tData.data;
-
-  for (let i = 0; i < W * H; i++) {
-    if (mask[i]) {
-      const pi = i * 4;
-      tPixels[pi + 3] = 0; // Make white pixels transparent
-    }
-  }
-  tempCtx.putImageData(tData, 0, 0);
-
-  // Draw the case frame (with transparent cutout) on top of the design
-  ctx.drawImage(tempCanvas, 0, 0);
+  // Step 4: Overlay the template directly on top (transparent areas already cut out)
+  ctx.drawImage(templateImg, 0, 0);
 
   return cvs.toDataURL('image/png');
 };
