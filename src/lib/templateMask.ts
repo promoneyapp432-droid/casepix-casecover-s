@@ -61,7 +61,7 @@ export const detectMaskFromTemplateImage = async (imageUrl: string): Promise<Tem
         if (visited[idx]) continue;
 
         const pixelIndex = idx * 4;
-        if (!isWhitePixel(data[pixelIndex], data[pixelIndex + 1], data[pixelIndex + 2], data[pixelIndex + 3])) {
+        if (!isTransparentPixel(data[pixelIndex], data[pixelIndex + 1], data[pixelIndex + 2], data[pixelIndex + 3])) {
           visited[idx] = 1;
           continue;
         }
