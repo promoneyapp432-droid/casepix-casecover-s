@@ -139,40 +139,84 @@ const AdminAllModels = () => {
   };
   useState(() => { if (brands) fetchModelCounts(); });
 
-  // Import Excel
+  // Smart column mapping - maps various header names to our DB fields
+  const COLUMN_MAPPINGS: Record<string, string[]> = {
+    name: ['modelname', 'model_name', 'model name', 'name', 'device', 'phone', 'mobile', 'device name', 'phone name', 'mobile name', 'model'],
+    image: ['image', 'imageurl', 'image_url', 'image url', 'img', 'photo', 'picture', 'thumbnail', 'mobile model image', 'model image'],
+    release_date: ['releasedate', 'release_date', 'release date', 'released', 'launch date', 'launchdate', 'date', 'year'],
+    size_inch: ['sizeinch', 'size_inch', 'size (inch)', 'size', 'display size', 'screen inch', 'screeninch', 'size in inch', 'display'],
+    height_mm: ['heightmm', 'height_mm', 'height (mm)', 'height', 'length', 'lengthmm', 'length_mm', 'height mm'],
+    width_mm: ['widthmm', 'width_mm', 'width (mm)', 'width', 'breadth', 'width mm'],
+    screen_size_cm2: ['screensizecm2', 'screen_size_cm2', 'screen size', 'screensize', 'screen area', 'screen size cm2', 'screen (cm2)', 'screen'],
+    body_to_screen_ratio: ['bodytoscreenratio', 'body_to_screen_ratio', 'body to screen ratio', 'screen ratio', 'body/screen', 'screen%', 'ratio', 'body to screen', 'screen body ratio'],
+    battery_mah: ['batterymah', 'battery_mah', 'battery (mah)', 'battery', 'battery mah', 'battery capacity'],
+  };
+
+  const detectColumnMapping = (headers: string[]): Record<string, number> => {
+    const mapping: Record<string, number> = {};
+    const normalizedHeaders = headers.map(h => h.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim());
+
+    for (const [dbField, aliases] of Object.entries(COLUMN_MAPPINGS)) {
+      for (const alias of aliases) {
+        const idx = normalizedHeaders.findIndex(h => h === alias || h.includes(alias));
+        if (idx !== -1 && !Object.values(mapping).includes(idx)) {
+          mapping[dbField] = idx;
+          break;
+        }
+      }
+    }
+    return mapping;
+  };
+
+  // Import Excel/CSV
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = (evt) => {
-      const text = evt.target?.result as string;
-      const lines = text.split('\n').filter(l => l.trim());
-      if (lines.length < 2) { toast.error('Empty file'); return; }
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-      const rows = lines.slice(1).map(line => {
-        const vals = parseCSVLine(line);
-        const row: any = {};
-        headers.forEach((h, i) => { row[h] = vals[i]?.trim() || ''; });
-        return row;
-      }).filter(r => r.modelname || r.model_name || r.name);
-      setPreviewData(rows);
-      setImportDialogOpen(true);
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData: any[][] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (const ch of line) {
-      if (ch === '"') { inQuotes = !inQuotes; }
-      else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
-      else { current += ch; }
-    }
-    result.push(current);
-    return result;
+        if (jsonData.length < 2) { toast.error('File is empty or has no data rows'); return; }
+
+        const headers = jsonData[0].map((h: any) => String(h || ''));
+        const columnMap = detectColumnMapping(headers);
+
+        if (columnMap.name === undefined) {
+          toast.error('Could not find a "Model Name" column. Please ensure your file has a column for model names.');
+          return;
+        }
+
+        const rows = jsonData.slice(1)
+          .filter(row => row && row[columnMap.name])
+          .map(row => ({
+            name: String(row[columnMap.name] || '').trim(),
+            image: columnMap.image !== undefined ? String(row[columnMap.image] || '').trim() || null : null,
+            release_date: columnMap.release_date !== undefined ? String(row[columnMap.release_date] || '').trim() || null : null,
+            size_inch: columnMap.size_inch !== undefined ? parseNum(row[columnMap.size_inch]) : null,
+            height_mm: columnMap.height_mm !== undefined ? parseNum(row[columnMap.height_mm]) : null,
+            width_mm: columnMap.width_mm !== undefined ? parseNum(row[columnMap.width_mm]) : null,
+            screen_size_cm2: columnMap.screen_size_cm2 !== undefined ? parseNum(row[columnMap.screen_size_cm2]) : null,
+            body_to_screen_ratio: columnMap.body_to_screen_ratio !== undefined ? parseNum(row[columnMap.body_to_screen_ratio]) : null,
+            battery_mah: columnMap.battery_mah !== undefined ? parseNum(row[columnMap.battery_mah]) : null,
+          }))
+          .filter(r => r.name);
+
+        if (!rows.length) { toast.error('No valid model data found in file'); return; }
+
+        setPreviewData(rows);
+        setImportDialogOpen(true);
+        toast.success(`Detected ${rows.length} models. Mapped columns: ${Object.keys(columnMap).join(', ')}`);
+      } catch (err: any) {
+        toast.error('Failed to parse file: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
   };
 
   const handleImport = async () => {
@@ -180,17 +224,9 @@ const AdminAllModels = () => {
     setImporting(true);
     try {
       const modelsToInsert = previewData.map(row => ({
-        name: row.modelname || row.model_name || row.name || '',
+        ...row,
         brand_id: selectedBrandId,
-        image: row.image || row.imageurl || row.image_url || null,
-        release_date: row.releasedate || row.release_date || null,
-        size_inch: parseNum(row.sizeinch || row.size_inch),
-        height_mm: parseNum(row.heightmm || row.height_mm),
-        width_mm: parseNum(row.widthmm || row.width_mm),
-        screen_size_cm2: parseNum(row.screensizecm2 || row.screen_size_cm2),
-        body_to_screen_ratio: parseNum(row.bodytoscreenratio || row.body_to_screen_ratio),
-        battery_mah: parseNum(row.batterymah || row.battery_mah),
-      })).filter(m => m.name);
+      }));
 
       const { error } = await supabase.from('mobile_models').insert(modelsToInsert as any);
       if (error) throw error;
@@ -206,8 +242,8 @@ const AdminAllModels = () => {
   };
 
   const parseNum = (val: any): number | null => {
-    if (!val || val === '') return null;
-    const n = parseFloat(val);
+    if (val === null || val === undefined || val === '') return null;
+    const n = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
     return isNaN(n) ? null : n;
   };
 
