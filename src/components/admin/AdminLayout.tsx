@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/context/StoreContext';
