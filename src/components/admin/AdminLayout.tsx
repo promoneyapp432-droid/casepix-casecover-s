@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStore } from '@/context/StoreContext';
@@ -20,6 +21,7 @@ import logoImg from '@/assets/logo.png';
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+  { icon: Database, label: 'All Models', path: '/admin/all-models' },
   { icon: Smartphone, label: 'Phone Case', path: '/admin/brands' },
   { icon: ShoppingBag, label: 'Orders', path: '/admin/orders' },
   { icon: Users, label: 'Users', path: '/admin/users' },

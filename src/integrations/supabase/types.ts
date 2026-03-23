@@ -278,25 +278,46 @@ export type Database = {
       }
       mobile_models: {
         Row: {
+          battery_mah: number | null
+          body_to_screen_ratio: number | null
           brand_id: string
           created_at: string
+          height_mm: number | null
           id: string
           image: string | null
           name: string
+          release_date: string | null
+          screen_size_cm2: number | null
+          size_inch: number | null
+          width_mm: number | null
         }
         Insert: {
+          battery_mah?: number | null
+          body_to_screen_ratio?: number | null
           brand_id: string
           created_at?: string
+          height_mm?: number | null
           id?: string
           image?: string | null
           name: string
+          release_date?: string | null
+          screen_size_cm2?: number | null
+          size_inch?: number | null
+          width_mm?: number | null
         }
         Update: {
+          battery_mah?: number | null
+          body_to_screen_ratio?: number | null
           brand_id?: string
           created_at?: string
+          height_mm?: number | null
           id?: string
           image?: string | null
           name?: string
+          release_date?: string | null
+          screen_size_cm2?: number | null
+          size_inch?: number | null
+          width_mm?: number | null
         }
         Relationships: [
           {
