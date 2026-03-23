@@ -21,7 +21,7 @@ import logoImg from '@/assets/logo.png';
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
-  { icon: Smartphone, label: 'All Models', path: '/admin/all-models' },
+  { icon: Database, label: 'All Models', path: '/admin/all-models' },
   { icon: Smartphone, label: 'Phone Case', path: '/admin/brands' },
   { icon: ShoppingBag, label: 'Orders', path: '/admin/orders' },
   { icon: Users, label: 'Users', path: '/admin/users' },
