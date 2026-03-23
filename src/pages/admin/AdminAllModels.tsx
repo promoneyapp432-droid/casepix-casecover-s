@@ -472,10 +472,10 @@ const AdminAllModels = () => {
               <TableBody>
                 {previewData.slice(0, 50).map((row, i) => (
                   <TableRow key={i}>
-                    <TableCell className="font-medium">{row.modelname || row.model_name || row.name}</TableCell>
-                    <TableCell>{row.releasedate || row.release_date || '—'}</TableCell>
-                    <TableCell>{row.sizeinch || row.size_inch || '—'}"</TableCell>
-                    <TableCell>{row.batterymah || row.battery_mah || '—'} mAh</TableCell>
+                    <TableCell className="font-medium">{row.name}</TableCell>
+                    <TableCell>{row.release_date || '—'}</TableCell>
+                    <TableCell>{row.size_inch ?? '—'}{row.size_inch ? '"' : ''}</TableCell>
+                    <TableCell>{row.battery_mah ?? '—'}{row.battery_mah ? ' mAh' : ''}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
