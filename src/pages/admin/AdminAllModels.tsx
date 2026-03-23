@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as XLSX from 'xlsx';
 import {
   Plus, Search, Upload, Download, Smartphone, ChevronRight,
   Trash2, Pencil, Image as ImageIcon, X, Check, Loader2
