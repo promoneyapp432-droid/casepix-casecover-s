@@ -16,6 +16,7 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import AdminBrands from "./pages/admin/AdminBrands";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAllModels from "./pages/admin/AdminAllModels";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
