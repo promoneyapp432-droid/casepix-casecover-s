@@ -357,7 +357,7 @@ const AdminAllModels = () => {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.txt"
+                    accept=".csv,.txt,.xlsx,.xls"
                     className="hidden"
                     onChange={handleFileSelect}
                   />
